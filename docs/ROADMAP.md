@@ -1,5 +1,9 @@
 # Roadmap
 
+> Aligned with [QUIZ_MASTER_DIRECTIVE_v2.md](QUIZ_MASTER_DIRECTIVE_v2.md)
+> (§41 phases) via [GAP_ANALYSIS.md](GAP_ANALYSIS.md); architectural
+> decisions in [adr/](adr/README.md).
+
 ## Delivered (v1.0)
 
 - Monorepo (Fastify + PostgreSQL 16 API, React SPA), env-driven config,
@@ -30,7 +34,29 @@
 - Subscription-ready: `users.plan` (free/premium) + settings gates;
   payment-provider-agnostic by design.
 
-## Next
+## Next — directive v2 alignment (near-term)
+
+From [GAP_ANALYSIS.md](GAP_ANALYSIS.md) ("modify"/"new" items, §-refs to the
+directive):
+
+1. **Scoring pack (§16)** — in-round streak bonus, daily competitive-points
+   cap, medium coefficient for unstable (<200 answers) questions, base
+   defaults 10/20/30/50 in seeded settings; unify `score_events` audit shape.
+2. **Repeat prevention + grace (§9, §15)** — `user_question_history` with a
+   90-day competitive exclusion (documented fallback), configurable 1.5s
+   network grace on deadlines.
+3. **Religion-category source rule (§10)** — mandatory `source_id` +
+   specialist reviewer; no AI-drafted religious question without a source.
+4. **Question versions & point refunds (§13)** — edits re-enter review;
+   refund points for confirmed-wrong questions within the season.
+5. **Privacy settings + follows (§20)** — searchability, challengeability,
+   country/stats visibility (public/friends/none).
+6. **Semantic duplicates (§12, ADR-007)** — pgvector + embeddings behind the
+   existing review queue.
+7. **Season fairness (§18)** — uniform daily competitive-round cap, shown in
+   the UI.
+
+## Next — platform (unchanged)
 
 1. **Media pipeline** — object storage + CDN, upload UI for image/audio/
    video question types (model + renderers already accept media URLs).

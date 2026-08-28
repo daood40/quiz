@@ -1,9 +1,17 @@
 # Architecture
 
+> **Governance:** the binding build reference is
+> [QUIZ_MASTER_DIRECTIVE_v2.md](QUIZ_MASTER_DIRECTIVE_v2.md) (Arabic), which
+> supersedes the previous directive. Its seven architectural decisions are
+> recorded against this codebase in [adr/](adr/README.md), and the
+> keep/modify/new mapping lives in [GAP_ANALYSIS.md](GAP_ANALYSIS.md).
+
 ## Stack decision
 
 The master directive prefers Flutter + Supabase but explicitly allows a
-different stack when better suited, with the reasons documented. Decision:
+different stack when better suited, with the reasons documented
+(see [ADR-002](adr/ADR-002-backend-stack.md) and
+[ADR-003](adr/ADR-003-client-stack.md)). Decision:
 
 **TypeScript monorepo — Fastify + PostgreSQL backend, React (Vite) web frontend.**
 

@@ -34,6 +34,10 @@
 | <https://daood40.github.io/quiz/> | النسخة التجريبية المباشرة (تعمل في المتصفح) |
 | <https://github.com/daood40/quiz> | هذا المستودع |
 | [README.en.md](README.en.md) | الدليل الكامل بالإنجليزية (التثبيت، قاعدة البيانات، التشغيل) |
+| [docs/QUIZ_MASTER_DIRECTIVE_v2.md](docs/QUIZ_MASTER_DIRECTIVE_v2.md) | وثيقة التوجيه الرئيسي (المرجع الملزم للبناء) |
+| [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md) | تحليل الفجوات مقابل التوجيه v2 |
+| [docs/adr/](docs/adr/README.md) | سجل القرارات المعمارية (ADR-001…007) |
+| [PROJECT_STATUS.md](PROJECT_STATUS.md) | حالة المشروع وسجل الجلسات |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | البنية المعمارية وتصميم محرك الأسئلة |
 | [docs/DATABASE.md](docs/DATABASE.md) | مخطط قاعدة البيانات والفهارس وخطة التوسع |
 | [docs/API.md](docs/API.md) | واجهة REST تحت ‎`/api/v1` |
