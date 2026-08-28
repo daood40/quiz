@@ -8,7 +8,7 @@
 |---|---|
 | الكود | منصة كاملة مستوردة من `daood40/falah` (فرع quiz-platform-build): خادم Fastify + PostgreSQL، واجهة React، 80 نوع سؤال على 13 عائلة، تحكيم خادمي كامل |
 | CI | ✅ أخضر: typecheck + 81 اختبارًا (تكامل على PostgreSQL حقيقية) + بناء + `npm audit --audit-level=high` |
-| النشر | Workflow جاهز ينشر Demo على `https://daood40.github.io/quiz/` مع كل push؛ **ينتظر تفعيل Pages يدويًا مرة واحدة** (Settings → Pages → Source: GitHub Actions ثم Re-run) |
+| النشر | ✅ حي: Pages مفعّل والنشر يعمل — `https://daood40.github.io/quiz/` يتحدث تلقائيًا مع كل push |
 | الحوكمة | التوجيه v2 معتمد في `docs/`؛ القرارات السبعة في [docs/adr/](docs/adr/)؛ تحليل الفجوات في [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md) |
 | أولوية التوجيه رقم 1 (نقل الحكم للخادم) | ✅ محققة أصلًا — لا منطق تصحيح/وقت/نقاط في عميل النسخة الكاملة (ADR-001)؛ الـ Demo استثناء معتمد (ADR-006) |
 
