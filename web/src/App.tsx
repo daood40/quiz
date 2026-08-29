@@ -14,6 +14,8 @@ import {
   LeaderboardPage, MonthlyPage, TournamentDetailPage, TournamentsPage,
 } from './pages/social';
 
+const PRIMARY_TABS = new Set(['/', '/play', '/leaderboard', '/stats', '/achievements']);
+
 function TopBar() {
   const { t, lang, setLang } = useI18n();
   const { theme, toggle } = useTheme();
@@ -42,7 +44,15 @@ function TopBar() {
       <Link to="/" className="brand">🧠 <span>{t('appName')}</span></Link>
       <nav aria-label="main">
         {links.map(([to, label]) => (
-          <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/'}
+            // primary destinations move to the bottom tab bar on phones
+            className={({ isActive }) => `${PRIMARY_TABS.has(to) ? 'pri' : ''} ${isActive ? 'active' : ''}`.trim()}
+          >
+            {label}
+          </NavLink>
         ))}
         {user.role !== 'user' && !user.isGuest && (
           <NavLink to="/admin" className={({ isActive }) => (isActive ? 'active' : '')}>{t('admin')}</NavLink>
@@ -62,6 +72,30 @@ function TopBar() {
   );
 }
 
+/** Mobile bottom tab bar (≤640px): app-like primary navigation. */
+function TabBar() {
+  const { t } = useI18n();
+  const { user } = useAuth();
+  if (!user) return null;
+  const tabs: Array<[string, string, string]> = [
+    ['/', '🏠', t('home')],
+    ['/play', '🎯', t('play')],
+    ['/leaderboard', '🏆', t('leaderboard')],
+    ['/stats', '📊', t('stats')],
+    ['/achievements', '🏅', t('achievements')],
+  ];
+  return (
+    <nav className="tabbar" aria-label="primary">
+      {tabs.map(([to, icon, label]) => (
+        <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => (isActive ? 'active' : '')}>
+          <span className="ico" aria-hidden="true">{icon}</span>
+          <span className="lbl">{label}</span>
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
+
 function Protected({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <span className="spin" />;
@@ -78,7 +112,7 @@ function Shell() {
       {IS_DEMO && user && (
         <div className="banner info" style={{ borderRadius: 0, textAlign: 'center', fontSize: 13 }}>
           🧪 {t('demoBanner')}{' '}
-          <a href="https://github.com/daood40/quiz-app" target="_blank" rel="noreferrer">GitHub ↗</a>
+          <a href="https://github.com/daood40/quiz" target="_blank" rel="noreferrer">GitHub ↗</a>
         </div>
       )}
       <main className="main">
@@ -107,6 +141,7 @@ function Shell() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      <TabBar />
     </div>
   );
 }
