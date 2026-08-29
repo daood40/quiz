@@ -10,6 +10,11 @@ export interface AppSettings {
   pointsPerDifficulty: Record<string, number>;
   speedBonusEnabled: boolean;
   speedBonusMaxPercent: number;   // extra % of base points for instant answers
+  streakBonusEnabled: boolean;    // bonus for consecutive correct answers within a round
+  streakBonusPerStep: number;     // points per consecutive-correct step
+  streakBonusCap: number;         // max steps counted (resets on any non-correct outcome)
+  dailyCompetitivePointsCap: number;      // max ranked points per user per UTC day; 0 = unlimited
+  newQuestionStabilityThreshold: number;  // answers below which difficulty pay is damped to medium; 0 = off
   xpPerCorrect: number;
   xpQuizCompletion: number;
   xpDailyChallenge: number;
@@ -41,6 +46,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pointsPerDifficulty: { easy: 10, medium: 15, hard: 20, expert: 30 },
   speedBonusEnabled: true,
   speedBonusMaxPercent: 50,
+  streakBonusEnabled: true,
+  streakBonusPerStep: 2,
+  streakBonusCap: 5,
+  dailyCompetitivePointsCap: 0,
+  newQuestionStabilityThreshold: 200,
   xpPerCorrect: 5,
   xpQuizCompletion: 20,
   xpDailyChallenge: 50,

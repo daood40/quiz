@@ -110,7 +110,7 @@ button:focus-visible, a:focus-visible {
   font-weight: 800; font-size: 17px; letter-spacing: -0.01em;
   color: var(--text); display: flex; align-items: center; gap: 8px;
 }
-.topbar nav { display: flex; gap: 2px; flex: 1; overflow-x: auto; scrollbar-width: none; }
+.topbar nav { display: flex; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .topbar nav::-webkit-scrollbar { display: none; }
 .topbar nav a {
   padding: 8px 13px; border-radius: 999px; color: var(--text-2);
@@ -400,12 +400,59 @@ label.fld { display: block; font-size: 12.5px; font-weight: 700; color: var(--te
 
 @media (max-width: 640px) {
   .main { padding: 16px 12px 84px; }
-  .topbar { padding: 8px 12px; }
+  .topbar { padding: 8px 12px; gap: 6px; }
+  /* keep the fixed-width side of the bar small enough that the nav
+     (flex + min-width:0) can actually shrink and scroll on phones */
+  .topbar .brand span { display: none; }
+  .topbar .spacer { display: none; }
   h1 { font-size: 22px; }
   .quiz-question { font-size: 17.5px; }
   .podium { gap: 8px; }
   .result-score { font-size: 38px; }
 }
+
+/* ---------- crossword ---------- */
+.xw-grid {
+  --xw-cell: clamp(34px, 9vw, 48px);
+  display: grid;
+  gap: 2px;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 4px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+.xw-block { background: color-mix(in srgb, var(--text) 78%, var(--surface)); border-radius: 4px; }
+.xw-cell { position: relative; }
+.xw-cell input {
+  width: 100%; height: 100%;
+  padding: 0; margin: 0;
+  text-align: center;
+  font-size: calc(var(--xw-cell) * 0.44);
+  font-weight: 700;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  caret-color: var(--primary);
+}
+.xw-cell.active input { background: var(--primary-soft); border-color: var(--primary); }
+.xw-cell input:focus { outline: 2px solid var(--primary); outline-offset: -2px; z-index: 1; position: relative; }
+.xw-num {
+  position: absolute; top: 1px; inset-inline-start: 3px;
+  font-size: calc(var(--xw-cell) * 0.24);
+  color: var(--text-2); pointer-events: none; z-index: 2;
+}
+.xw-clues { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.xw-clue {
+  border: none; background: none; cursor: pointer;
+  padding: 6px 10px; border-radius: 8px;
+  color: var(--text); font-size: 14px; text-align: start;
+}
+.xw-clue.active { background: var(--primary-soft); color: var(--primary); }
+.xw-clue:hover { background: var(--surface-2); }
 
 /* ---------- focus mode (quiz play) ---------- */
 body[data-focus='1'] .topbar { display: none; }

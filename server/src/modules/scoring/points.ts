@@ -8,12 +8,15 @@ export interface PointsInput {
   timeTakenMs: number;
   timeLimitMs: number;
   scored: boolean;             // registry spec.scored
+  streakBefore?: number;       // consecutive correct answers earlier in this round
+  statsAttempts?: number;      // lifetime recorded answers for this question
 }
 
 export interface PointsOutput {
   points: number;
   maxPoints: number;
   speedBonus: number;
+  streakBonus: number;
 }
 
 /**
@@ -22,15 +25,24 @@ export interface PointsOutput {
  * All coefficients come from settings — nothing hardcoded.
  */
 export function computePoints(input: PointsInput, settings: AppSettings): PointsOutput {
-  if (!input.scored) return { points: 0, maxPoints: 0, speedBonus: 0 };
-  const base =
+  if (!input.scored) return { points: 0, maxPoints: 0, speedBonus: 0, streakBonus: 0 };
+  let base =
     input.basePoints > 0
       ? input.basePoints
       : settings.pointsPerDifficulty[input.difficulty] ?? settings.pointsPerDifficulty.medium ?? 10;
+  // Anti-inflation: while a question's difficulty is statistically unstable
+  // (few recorded answers), difficulty-based pay is damped to the medium rate.
+  if (
+    input.basePoints <= 0 &&
+    settings.newQuestionStabilityThreshold > 0 &&
+    (input.statsAttempts ?? Number.MAX_SAFE_INTEGER) < settings.newQuestionStabilityThreshold
+  ) {
+    base = settings.pointsPerDifficulty.medium ?? base;
+  }
   const maxPoints = base;
   const { outcome, ratio } = input.result;
   if (outcome === 'timeout' || outcome === 'skipped' || outcome === 'incorrect') {
-    return { points: 0, maxPoints, speedBonus: 0 };
+    return { points: 0, maxPoints, speedBonus: 0, streakBonus: 0 };
   }
   let points = base * ratio;
   let speedBonus = 0;
@@ -39,5 +51,10 @@ export function computePoints(input: PointsInput, settings: AppSettings): Points
     speedBonus = Math.round(base * (settings.speedBonusMaxPercent / 100) * remaining);
     points += speedBonus;
   }
-  return { points: Math.round(points), maxPoints, speedBonus };
+  let streakBonus = 0;
+  if (settings.streakBonusEnabled && outcome === 'correct') {
+    streakBonus = Math.min((input.streakBefore ?? 0) + 1, settings.streakBonusCap) * settings.streakBonusPerStep;
+    points += streakBonus;
+  }
+  return { points: Math.round(points), maxPoints, speedBonus, streakBonus };
 }

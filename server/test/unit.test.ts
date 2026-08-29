@@ -7,7 +7,8 @@ import { parseCsv, toCsv } from '../src/modules/admin/importExport.js';
 import { _testConsume, _testReset } from '../src/core/rateLimit.js';
 import { computeContentHash } from '../src/modules/questions/service.js';
 
-const settings = { ...DEFAULT_SETTINGS };
+const settings = { ...DEFAULT_SETTINGS, streakBonusEnabled: false };  // bonuses isolated per test
+const streaky = { ...DEFAULT_SETTINGS, speedBonusEnabled: false };
 
 describe('points engine', () => {
   it('correct answer earns base + speed bonus', () => {
@@ -62,6 +63,33 @@ describe('points engine', () => {
       { ...settings, speedBonusEnabled: false },
     );
     expect(r.points).toBe(10);
+  });
+  it('in-round streak bonus grows per consecutive correct and caps', () => {
+    const base = { basePoints: 10, difficulty: 'easy', result: { outcome: 'correct', ratio: 1 } as const, timeTakenMs: 30000, timeLimitMs: 30000, scored: true };
+    expect(computePoints({ ...base, streakBefore: 0 }, streaky).streakBonus).toBe(2);   // 1st correct
+    expect(computePoints({ ...base, streakBefore: 4 }, streaky).streakBonus).toBe(10);  // 5th correct
+    expect(computePoints({ ...base, streakBefore: 9 }, streaky).streakBonus).toBe(10);  // capped at 5 steps
+    expect(computePoints({ ...base, streakBefore: 4 }, streaky).points).toBe(20);       // 10 base + 10 streak
+  });
+  it('streak bonus never applies to non-correct outcomes', () => {
+    const r = computePoints(
+      { basePoints: 10, difficulty: 'easy', result: { outcome: 'partial', ratio: 0.5 }, timeTakenMs: 30000, timeLimitMs: 30000, scored: true, streakBefore: 4 },
+      streaky,
+    );
+    expect(r.streakBonus).toBe(0);
+  });
+  it('unstable questions (below stability threshold) pay the medium rate', () => {
+    const base = { difficulty: 'expert', result: { outcome: 'correct', ratio: 1 } as const, timeTakenMs: 30000, timeLimitMs: 30000, scored: true };
+    // difficulty-priced + few recorded answers → damped to medium
+    expect(computePoints({ ...base, basePoints: 0, statsAttempts: 10 }, settings).points).toBe(settings.pointsPerDifficulty.medium);
+    // enough answers → full expert rate
+    expect(computePoints({ ...base, basePoints: 0, statsAttempts: 500 }, settings).points).toBe(settings.pointsPerDifficulty.expert);
+    // author-set explicit points are always respected
+    expect(computePoints({ ...base, basePoints: 40, statsAttempts: 10 }, settings).points).toBe(40);
+    // damping disabled via settings
+    expect(
+      computePoints({ ...base, basePoints: 0, statsAttempts: 10 }, { ...settings, newQuestionStabilityThreshold: 0 }).points,
+    ).toBe(settings.pointsPerDifficulty.expert);
   });
 });
 

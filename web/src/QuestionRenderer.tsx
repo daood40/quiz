@@ -258,9 +258,188 @@ function Hotspot({ question, onSubmit, disabled }: Props) {
   );
 }
 
+interface XwSlot {
+  id: string;
+  clue: unknown;
+  row: number;
+  col: number;
+  length: number;
+  direction: 'across' | 'down';
+  number: number;
+}
+
+/**
+ * Interactive crossword: a real letter grid built from positioned slots
+ * (row/col/direction in content), with keyboard navigation, numbered cells,
+ * and an across/down clue list. Arabic boards set content.rtl and the CSS
+ * grid direction flips column order natively.
+ */
+function CrosswordBoard({ question, onSubmit, disabled, slots }: Props & { slots: XwSlot[] }) {
+  const { t, pick } = useI18n();
+  const [letters, setLetters] = useState<Record<string, string>>({});
+  const [active, setActive] = useState(slots[0]?.id ?? '');
+  const rtl = question.content.rtl === true;
+
+  const { cells, rows, cols } = useMemo(() => {
+    const map = new Map<string, { r: number; c: number; slots: string[]; number?: number }>();
+    let rMax = 0;
+    let cMax = 0;
+    for (const s of slots) {
+      for (let i = 0; i < s.length; i++) {
+        const r = s.direction === 'down' ? s.row + i : s.row;
+        const c = s.direction === 'across' ? s.col + i : s.col;
+        const key = `${r},${c}`;
+        const cell = map.get(key) ?? { r, c, slots: [] };
+        cell.slots.push(s.id);
+        if (i === 0) cell.number = cell.number ?? s.number;
+        map.set(key, cell);
+        rMax = Math.max(rMax, r);
+        cMax = Math.max(cMax, c);
+      }
+    }
+    return { cells: map, rows: rMax + 1, cols: cMax + 1 };
+  }, [slots]);
+
+  const slotById = useMemo(() => new Map(slots.map((s) => [s.id, s])), [slots]);
+  const cellKeys = (s: XwSlot) =>
+    Array.from({ length: s.length }, (_, i) =>
+      s.direction === 'down' ? `${s.row + i},${s.col}` : `${s.row},${s.col + i}`);
+
+  const focusCell = (key: string) => {
+    const el = document.querySelector<HTMLInputElement>(`input[data-xw="${question.id}-${key}"]`);
+    el?.focus();
+    el?.select();
+  };
+
+  const step = (key: string, dir: 1 | -1) => {
+    const s = slotById.get(active);
+    if (!s) return;
+    const ks = cellKeys(s);
+    const next = ks[ks.indexOf(key) + dir];
+    if (next) focusCell(next);
+  };
+
+  const onCellChange = (key: string, value: string) => {
+    const ch = value.slice(-1);
+    setLetters((m) => ({ ...m, [key]: ch }));
+    if (ch) step(key, 1);
+  };
+
+  const onCellKey = (key: string, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !(e.target as HTMLInputElement).value) {
+      e.preventDefault();
+      step(key, -1);
+      const s = slotById.get(active);
+      if (s) {
+        const ks = cellKeys(s);
+        const prev = ks[ks.indexOf(key) - 1];
+        if (prev) setLetters((m) => ({ ...m, [prev]: '' }));
+      }
+    }
+  };
+
+  const onCellFocus = (key: string) => {
+    const cell = cells.get(key);
+    if (cell && !cell.slots.includes(active)) setActive(cell.slots[0]);
+  };
+
+  const toggleDirection = (key: string) => {
+    const cell = cells.get(key);
+    if (cell && cell.slots.length > 1) {
+      const idx = cell.slots.indexOf(active);
+      setActive(cell.slots[(idx + 1) % cell.slots.length]);
+    }
+  };
+
+  const entries = () => {
+    const out: Record<string, string> = {};
+    for (const s of slots) {
+      const word = cellKeys(s).map((k) => letters[k] ?? '').join('');
+      if (word.trim()) out[s.id] = word;
+    }
+    return out;
+  };
+
+  const activeCells = new Set(slotById.get(active) ? cellKeys(slotById.get(active)!) : []);
+  const groups: Array<['across' | 'down', XwSlot[]]> = [
+    ['across', slots.filter((s) => s.direction === 'across')],
+    ['down', slots.filter((s) => s.direction === 'down')],
+  ];
+
+  return (
+    <div className="stack">
+      <div
+        className="xw-grid"
+        role="group"
+        aria-label={pick(question.content.prompt)}
+        dir={rtl ? 'rtl' : 'ltr'}
+        style={{ gridTemplateColumns: `repeat(${cols}, var(--xw-cell))`, gridTemplateRows: `repeat(${rows}, var(--xw-cell))` }}
+      >
+        {Array.from({ length: rows * cols }, (_, i) => {
+          const r = Math.floor(i / cols);
+          const c = i % cols;
+          const key = `${r},${c}`;
+          const cell = cells.get(key);
+          if (!cell) return <div key={key} className="xw-block" aria-hidden="true" />;
+          return (
+            <div key={key} className={`xw-cell ${activeCells.has(key) ? 'active' : ''}`}>
+              {cell.number != null && <span className="xw-num" aria-hidden="true">{cell.number}</span>}
+              <input
+                data-xw={`${question.id}-${key}`}
+                value={letters[key] ?? ''}
+                maxLength={2}
+                autoComplete="off"
+                aria-label={`${t(slotById.get(cell.slots[0])!.direction)} ${slotById.get(cell.slots[0])!.number}`}
+                disabled={disabled}
+                onChange={(e) => onCellChange(key, e.target.value)}
+                onKeyDown={(e) => onCellKey(key, e)}
+                onFocus={() => onCellFocus(key)}
+                onClick={() => toggleDirection(key)}
+              />
+            </div>
+          );
+        })}
+      </div>
+      {groups.map(([dir, list]) =>
+        list.length === 0 ? null : (
+          <div key={dir} className="xw-clues">
+            <span className="muted" style={{ fontWeight: 700 }}>{t(dir)}</span>
+            {list.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                className={`xw-clue ${active === s.id ? 'active' : ''}`}
+                onClick={() => { setActive(s.id); focusCell(cellKeys(s)[0]); }}
+                disabled={disabled}
+              >
+                <b>{s.number}.</b> {pick(s.clue)}
+              </button>
+            ))}
+          </div>
+        ),
+      )}
+      <SubmitBar onSubmit={() => onSubmit({ entries: entries() })} canSubmit={Object.keys(entries()).length > 0} disabled={disabled} />
+    </div>
+  );
+}
+
 function GridPuzzle({ question, onSubmit, disabled }: Props) {
   const { pick } = useI18n();
   const slots = arr(question.content.slots).concat(arr(question.content.cells));
+  const positioned = slots.length > 0 && slots.every(
+    (s) => typeof s.row === 'number' && typeof s.col === 'number' &&
+           typeof s.length === 'number' && (s.direction === 'across' || s.direction === 'down'),
+  );
+  if (positioned) {
+    const xw = slots
+      .map((s, i) => ({
+        id: str(s.id), clue: s.clue, row: s.row as number, col: s.col as number,
+        length: s.length as number, direction: s.direction as 'across' | 'down',
+        number: typeof s.number === 'number' ? (s.number as number) : i + 1,
+      }))
+      .sort((a, b) => a.number - b.number);
+    return <CrosswordBoard question={question} spec={undefined} onSubmit={onSubmit} disabled={disabled} slots={xw} />;
+  }
   const gridRows = Array.isArray(question.content.grid) ? (question.content.grid as string[]) : [];
   const [entries, setEntries] = useState<Record<string, string>>({});
   const [words, setWords] = useState('');

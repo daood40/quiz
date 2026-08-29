@@ -201,6 +201,7 @@ interface AttemptRow {
     lastEventAt: string;
     graceMs: number;
     untimed?: boolean;
+    roundStreak?: number;
     powerups?: {
       fiftyFifty: number;
       timeExtend: number;
@@ -325,8 +326,10 @@ async function answerQuestionTx(
     const timedOut = untimed ? pastOverall : elapsedMs > limitMs + graceMs || pastOverall;
 
     const qRows = await client.query(
-      `SELECT id, type, difficulty, content, correct_answer, configuration, points, explanation
-       FROM questions WHERE id = $1`,
+      `SELECT q.id, q.type, q.difficulty, q.content, q.correct_answer, q.configuration, q.points, q.explanation,
+              COALESCE(qs.attempts, 0) AS stats_attempts
+       FROM questions q LEFT JOIN question_stats qs ON qs.question_id = q.id
+       WHERE q.id = $1`,
       [questionId],
     );
     const q = qRows.rows[0];
@@ -354,6 +357,7 @@ async function answerQuestionTx(
     }
 
     const scored = registry.isScored(q.type);
+    const streakBefore = meta.roundStreak ?? 0;
     const { points, maxPoints } = computePoints(
       {
         basePoints: q.points,
@@ -363,9 +367,12 @@ async function answerQuestionTx(
         timeTakenMs: untimed ? limitMs : Math.min(elapsedMs, limitMs),
         timeLimitMs: limitMs,
         scored,
+        streakBefore,
+        statsAttempts: Number(q.stats_attempts),
       },
       settings,
     );
+    const roundStreak = outcome === 'correct' ? streakBefore + 1 : 0;
 
     await client.query(
       `INSERT INTO attempt_answers
@@ -373,10 +380,12 @@ async function answerQuestionTx(
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
       [attemptId, questionId, JSON.stringify(answer ?? null), outcome, points, maxPoints, ratio, Math.min(elapsedMs, limitMs + graceMs)],
     );
-    await client.query(`UPDATE attempts SET question_meta = jsonb_set(question_meta, '{lastEventAt}', to_jsonb($2::text)) WHERE id = $1`, [
-      attemptId,
-      new Date(now).toISOString(),
-    ]);
+    await client.query(
+      `UPDATE attempts SET question_meta = jsonb_set(
+         jsonb_set(question_meta, '{lastEventAt}', to_jsonb($2::text)),
+         '{roundStreak}', to_jsonb($3::int)) WHERE id = $1`,
+      [attemptId, new Date(now).toISOString(), roundStreak],
+    );
 
     // live per-question stats
     await client.query(
@@ -528,9 +537,27 @@ export async function submitAttempt(attemptId: string, userId: string) {
     const xpRes = await awardXp(client, userId, xp, 'quiz_completion', attemptId, settings);
     const streak = await touchStreak(client, userId, settings);
 
+    // Competitive isolation + anti-inflation (fairness rules):
+    // practice/review are learning modes — their points never rank; and ranked
+    // points per user per UTC day respect the configurable cap.
+    const competitive = attempt.mode !== 'practice' && attempt.mode !== 'review';
+    let rankedScore = 0;
+    if (competitive) {
+      rankedScore = score;
+      if (settings.dailyCompetitivePointsCap > 0) {
+        const capDay = new Date().toISOString().slice(0, 10);
+        const prior = await client.query(
+          `SELECT points FROM leaderboard_scores WHERE user_id = $1 AND scope = 'daily' AND scope_key = $2`,
+          [userId, capDay],
+        );
+        const earnedToday = Number(prior.rows[0]?.points ?? 0);
+        rankedScore = Math.max(0, Math.min(score, settings.dailyCompetitivePointsCap - earnedToday));
+      }
+    }
+
     await client.query(
       `UPDATE users SET total_points = total_points + $2, updated_at = now() WHERE id = $1`,
-      [userId, score],
+      [userId, rankedScore],
     );
     await client.query(
       `UPDATE attempts SET xp_awarded = $2 WHERE id = $1`,
@@ -618,25 +645,27 @@ export async function submitAttempt(attemptId: string, userId: string) {
     if (attempt.context_type === 'monthly' && attempt.context_id) scopes.push(['monthly_challenge', attempt.context_id]);
     if (attempt.context_type === 'challenge' && attempt.context_id) scopes.push(['challenge', attempt.context_id]);
     if (attempt.context_type === 'tournament' && attempt.context_id) scopes.push(['tournament', attempt.context_id]);
-    for (const [scope, key] of scopes) {
+    if (competitive) {
+      for (const [scope, key] of scopes) {
+        await client.query(
+          `INSERT INTO leaderboard_scores (user_id, scope, scope_key, points, correct, total_time_ms, last_scored_at)
+           VALUES ($1,$2,$3,$4,$5,$6, now())
+           ON CONFLICT (user_id, scope, scope_key) DO UPDATE SET
+             points = leaderboard_scores.points + $4,
+             correct = leaderboard_scores.correct + $5,
+             total_time_ms = leaderboard_scores.total_time_ms + $6,
+             last_scored_at = now()`,
+          [userId, scope, key, rankedScore, Number(t.correct), timeMs],
+        );
+      }
+
+      // write-through cache invalidation so boards reflect this result immediately
       await client.query(
-        `INSERT INTO leaderboard_scores (user_id, scope, scope_key, points, correct, total_time_ms, last_scored_at)
-         VALUES ($1,$2,$3,$4,$5,$6, now())
-         ON CONFLICT (user_id, scope, scope_key) DO UPDATE SET
-           points = leaderboard_scores.points + $4,
-           correct = leaderboard_scores.correct + $5,
-           total_time_ms = leaderboard_scores.total_time_ms + $6,
-           last_scored_at = now()`,
-        [userId, scope, key, score, Number(t.correct), timeMs],
+        `DELETE FROM leaderboard_snapshots WHERE (scope, scope_key) IN
+           (SELECT unnest($1::text[]), unnest($2::text[]))`,
+        [scopes.map((s) => s[0]), scopes.map((s) => s[1])],
       );
     }
-
-    // write-through cache invalidation so boards reflect this result immediately
-    await client.query(
-      `DELETE FROM leaderboard_snapshots WHERE (scope, scope_key) IN
-         (SELECT unnest($1::text[]), unnest($2::text[]))`,
-      [scopes.map((s) => s[0]), scopes.map((s) => s[1])],
-    );
 
     const achievements = await evaluateAchievements(client, userId, settings);
     for (const a of achievements) {

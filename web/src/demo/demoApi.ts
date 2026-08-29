@@ -67,6 +67,7 @@ interface Attempt {
   score: number;
   maxScore: number;
   submittedAt?: number;
+  roundStreak?: number;
 }
 interface DemoState {
   user: DemoUser;
@@ -221,8 +222,11 @@ function answerQuestion(attemptId: string, questionId: string, answer: unknown) 
     if (!a.untimed && outcome === 'correct' && limitMs > 0) {
       points += base * 0.5 * Math.max(0, 1 - Math.min(elapsed, limitMs) / limitMs);
     }
+    // in-round streak bonus, same rule as the server: min(streak, 5) × 2
+    if (outcome === 'correct') points += Math.min((a.roundStreak ?? 0) + 1, 5) * 2;
     points = Math.round(points);
   }
+  a.roundStreak = outcome === 'correct' ? (a.roundStreak ?? 0) + 1 : 0;
   a.answers.push({ questionId, answer, outcome, score: points, maxScore: base, timeTakenMs: Math.min(elapsed, limitMs) });
   a.lastEventAt = now;
   a.score += points;

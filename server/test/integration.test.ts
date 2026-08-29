@@ -200,7 +200,7 @@ describe('ranking & tie-breakers', () => {
 
   async function playPerfect(username: string, delayMsBetween = 0) {
     const u = await registerUser(username);
-    const start = await api('/quizzes/start', { method: 'POST', token: u.token, body: { questionCount: 2 } });
+    const start = await api('/quizzes/start', { method: 'POST', token: u.token, body: { mode: 'timed', questionCount: 2 } });
     const { attemptId, questions } = start.body as { attemptId: string; questions: Array<{ id: string }> };
     for (const q of questions) {
       if (delayMsBetween > 0) {
@@ -227,6 +227,60 @@ describe('ranking & tie-breakers', () => {
     expect(entries).toHaveLength(2);
     expect(entries[0].points).toBe(entries[1].points);
     expect(entries[0].username).toBe('fastp');
+  });
+});
+
+describe('competitive fairness', () => {
+  beforeEach(resetDb);
+
+  async function play(token: string, mode: string, count = 2) {
+    const start = await api('/quizzes/start', { method: 'POST', token, body: { mode, questionCount: count } });
+    const { attemptId, questions } = start.body as { attemptId: string; questions: Array<{ id: string }> };
+    for (const q of questions) {
+      await api(`/quizzes/attempts/${attemptId}/answers`, { method: 'POST', token, body: { questionId: q.id, answer: 'o1' } });
+    }
+    const submit = await api(`/quizzes/attempts/${attemptId}/submit`, { method: 'POST', token });
+    return submit.body as { score: number };
+  }
+
+  it('practice and review points never reach the competitive leaderboard', async () => {
+    for (let i = 0; i < 2; i++) await seedQuestion({});
+    const u = await registerUser('learner');
+    const summary = await play(u.token, 'practice');
+    expect(summary.score).toBeGreaterThan(0); // result screen still shows earned points
+    const lb = await api('/leaderboards?scope=global');
+    expect((lb.body as { entries: unknown[] }).entries).toHaveLength(0);
+    const row = await query('SELECT total_points FROM users WHERE id = $1', [u.id]);
+    expect(Number(row.rows[0].total_points)).toBe(0);
+  });
+
+  it('consecutive correct answers earn a capped in-round streak bonus', async () => {
+    for (let i = 0; i < 2; i++) await seedQuestion({});
+    await query(`INSERT INTO app_settings (key, value) VALUES ('speedBonusEnabled','false')`);
+    const { invalidateSettingsCache } = await import('../src/core/settings.js');
+    invalidateSettingsCache();
+    const u = await registerUser('streaker');
+    const summary = await play(u.token, 'timed');
+    // 2 questions × 10 base + streak bonuses (1st: +2, 2nd: +4)
+    expect(summary.score).toBe(26);
+  });
+
+  it('daily competitive cap limits ranked points but not the result screen', async () => {
+    for (let i = 0; i < 2; i++) await seedQuestion({});
+    await query(
+      `INSERT INTO app_settings (key, value) VALUES
+       ('dailyCompetitivePointsCap','12'), ('speedBonusEnabled','false'), ('streakBonusEnabled','false')`,
+    );
+    const { invalidateSettingsCache } = await import('../src/core/settings.js');
+    invalidateSettingsCache();
+    const u = await registerUser('capped');
+    const summary = await play(u.token, 'timed');
+    expect(summary.score).toBe(20); // full score on the result screen
+    const lb = await api('/leaderboards?scope=global');
+    const entries = (lb.body as { entries: Array<{ points: number }> }).entries;
+    expect(entries[0].points).toBe(12); // ranked points hit the cap
+    const row = await query('SELECT total_points FROM users WHERE id = $1', [u.id]);
+    expect(Number(row.rows[0].total_points)).toBe(12);
   });
 });
 

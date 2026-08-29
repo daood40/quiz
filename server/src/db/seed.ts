@@ -203,9 +203,20 @@ function sampleQuestions(): SeedQuestion[] {
       correct: { regions: [{ shape: 'circle', x: 0.5, y: 0.5, r: 0.1 }] } },
     // --- grid puzzles ---
     { type: 'crossword', category: 'general', difficulty: 'medium', language: 'en',
-      content: { prompt: { en: 'Mini crossword: solve both clues.' },
-        slots: [{ id: 'a1', clue: 'Opposite of day (5 letters)', length: 5 }, { id: 'a2', clue: 'Frozen water (3 letters)', length: 3 }] },
+      content: { prompt: { en: 'Mini crossword: fill the grid.' },
+        slots: [
+          { id: 'a1', clue: 'Opposite of day (5 letters)', length: 5, row: 0, col: 0, direction: 'across', number: 1 },
+          { id: 'a2', clue: 'Frozen water (3 letters)', length: 3, row: 0, col: 1, direction: 'down', number: 2 },
+        ] },
       correct: { entries: { a1: 'night', a2: 'ice' } }, config: { partialCredit: true } },
+    { type: 'crossword', category: 'general', difficulty: 'medium', language: 'ar',
+      content: { prompt: { ar: 'كلمات متقاطعة: حلّ الشبكة كاملة.', en: 'Arabic crossword: fill the grid.' }, rtl: true,
+        slots: [
+          { id: 'a1', clue: { ar: 'جِرم سماوي يضيء ليلًا (3 أحرف)', en: 'Celestial body that lights the night (3)' }, length: 3, row: 0, col: 0, direction: 'across', number: 1 },
+          { id: 'd1', clue: { ar: 'ماء ينزل من السماء (3 أحرف)', en: 'Water falling from the sky (3)' }, length: 3, row: 0, col: 1, direction: 'down', number: 2 },
+          { id: 'a2', clue: { ar: 'يكثر في الصحراء (3 أحرف)', en: 'Abundant in the desert (3)' }, length: 3, row: 2, col: 1, direction: 'across', number: 3 },
+        ] },
+      correct: { entries: { a1: 'قمر', d1: 'مطر', a2: 'رمل' } }, config: { partialCredit: true } },
     { type: 'word_search', category: 'languages', difficulty: 'easy', language: 'en',
       content: { prompt: { en: 'Find the three hidden animals.' },
         grid: ['CATXQ', 'ODOGR', 'WBIRD', 'XYZAB', 'LMNOP'] },

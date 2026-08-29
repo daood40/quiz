@@ -24,7 +24,7 @@ interface AttemptRow {
 }
 
 export function HomePage() {
-  const { t, pick } = useI18n();
+  const { t, pick, lang } = useI18n();
   const { user } = useAuth();
   const nav = useNavigate();
   const [categories, setCategories] = useState<Category[] | null>(null);
@@ -59,7 +59,7 @@ export function HomePage() {
       <div className="card hero">
         <div className="row between">
           <div>
-            <h1>{t('greeting')}, {user.displayName || user.username} 👋</h1>
+            <h1>{t('greeting')}{lang === 'ar' ? '،' : ','} {user.displayName || user.username} 👋</h1>
             <div className="row" style={{ gap: 8 }}>
               <span className="badge primary">{t('level')} {user.level}</span>
               <span className="badge">{user.totalPoints.toLocaleString()} {t('points')}</span>
