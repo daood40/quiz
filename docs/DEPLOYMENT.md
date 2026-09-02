@@ -1,5 +1,22 @@
 # Deployment
 
+## One-command options (pick one)
+
+| Target | How |
+|---|---|
+| **Docker (any VPS)** | `docker compose up -d --build` — API + SPA + PostgreSQL 16 from `docker-compose.yml`; set `JWT_SECRET`, `POSTGRES_PASSWORD`, `CORS_ORIGIN` in `.env` |
+| **Render** | New → Blueprint → this repo; `render.yaml` provisions the web service (Docker) + managed Postgres and generates `JWT_SECRET` |
+| **Fly.io** | `fly launch --no-deploy` → `fly postgres create && fly postgres attach` → `fly secrets set JWT_SECRET=$(openssl rand -hex 64) CORS_ORIGIN=https://<app>.fly.dev` → `fly deploy` (uses `fly.toml` + `Dockerfile`) |
+| **Railway** | New project → Deploy from GitHub (Dockerfile auto-detected) → add PostgreSQL plugin → set `JWT_SECRET`, `CORS_ORIGIN`; `DATABASE_URL` is injected |
+
+After first boot run the seed once (`docker compose exec api node server/dist/db/seed.js`
+or the platform's shell) with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` set,
+then log in and change the admin password. Health check: `GET /health`.
+
+Point the GitHub Pages demo at the live API by setting `VITE_API_BASE`
+(e.g. `https://<api-host>/api/v1`) and dropping `VITE_DEMO` in
+`.github/workflows/pages.yml` — or serve the SPA from the API itself (default).
+
 ## Single-server (simplest production)
 
 ```bash

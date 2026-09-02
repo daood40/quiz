@@ -9,6 +9,7 @@ import { ForgotPage, LoginPage, RegisterPage } from './pages/auth';
 import { HomePage } from './pages/home';
 import { PlayPage, ReviewPage } from './pages/quiz';
 import { AchievementsPage, NotificationsPage, PublicProfilePage, SettingsPage, StatsPage } from './pages/profile';
+import { Footer, NotFoundPage, PrivacyPage, TermsPage } from './pages/legal';
 import {
   ChallengeDetailPage, ChallengesPage, FriendsPage, GroupDetailPage, GroupsPage,
   LeaderboardPage, MonthlyPage, TournamentDetailPage, TournamentsPage,
@@ -108,6 +109,7 @@ function Shell() {
   const { t } = useI18n();
   return (
     <div className="app-shell">
+      <a href="#main" className="skip-link">{t('skipToContent')}</a>
       <TopBar />
       {IS_DEMO && user && (
         <div className="banner info" style={{ borderRadius: 0, textAlign: 'center', fontSize: 13 }}>
@@ -115,7 +117,7 @@ function Shell() {
           <a href="https://github.com/daood40/quiz" target="_blank" rel="noreferrer">GitHub ↗</a>
         </div>
       )}
-      <main className="main">
+      <main className="main" id="main">
         <Routes>
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -138,8 +140,11 @@ function Shell() {
           <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
           <Route path="/u/:username" element={<PublicProfilePage />} />
           <Route path="/admin/*" element={<Protected><AdminPage /></Protected>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        <Footer />
       </main>
       <TabBar />
     </div>

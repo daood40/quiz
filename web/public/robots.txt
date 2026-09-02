@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://daood40.github.io/quiz/sitemap.xml

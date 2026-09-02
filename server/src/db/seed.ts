@@ -10,6 +10,7 @@ import { env } from '../config/env.js';
 import { closePool, query } from './pool.js';
 import { computeContentHash } from '../modules/questions/service.js';
 import { registry } from '../modules/questions/engine/registry.js';
+import { AR_QUESTIONS } from './seed_ar.js';
 
 const CATEGORIES = [
   ['general', { en: 'General Knowledge', ar: 'معلومات عامة' }, '🌍'],
@@ -332,7 +333,7 @@ export async function seed(): Promise<void> {
   const catMap = new Map<string, string>(cats.rows.map((c) => [c.slug, c.id]));
 
   let inserted = 0;
-  for (const q of sampleQuestions()) {
+  for (const q of [...sampleQuestions(), ...AR_QUESTIONS]) {
     const errors = registry.validate(q.type, {
       type: q.type,
       content: q.content,

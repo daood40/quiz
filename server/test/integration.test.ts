@@ -230,6 +230,85 @@ describe('ranking & tie-breakers', () => {
   });
 });
 
+describe('parity features: audience, bookmarks, versions, refund', () => {
+  beforeEach(resetDb);
+
+  it('ask-the-audience returns a distribution over the options once per round', async () => {
+    for (let i = 0; i < 2; i++) await seedQuestion({});
+    const u = await registerUser('crowd');
+    const start = await api('/quizzes/start', { method: 'POST', token: u.token, body: { mode: 'timed', questionCount: 1 } });
+    const { attemptId, questions } = start.body as { attemptId: string; questions: Array<{ id: string }>; powerups: { audience: number } };
+    expect((start.body as { powerups: { audience: number } }).powerups.audience).toBe(1);
+    const res = await api(`/quizzes/attempts/${attemptId}/powerups`, { method: 'POST', token: u.token, body: { kind: 'audience', questionId: questions[0].id } });
+    expect(res.status).toBe(200);
+    const body = res.body as { distribution: Array<{ optionId: string; percent: number }>; remaining: number };
+    expect(body.distribution).toHaveLength(3);
+    expect(body.distribution.reduce((a, d) => a + d.percent, 0)).toBeGreaterThanOrEqual(98);
+    expect(body.remaining).toBe(0);
+    const again = await api(`/quizzes/attempts/${attemptId}/powerups`, { method: 'POST', token: u.token, body: { kind: 'audience', questionId: questions[0].id } });
+    expect(again.status).toBe(409);
+  });
+
+  it('bookmarks: save, list, replay as a round, remove', async () => {
+    const q1 = await seedQuestion({});
+    await seedQuestion({});
+    const u = await registerUser('saver');
+    expect((await api(`/quizzes/bookmarks/${q1}`, { method: 'POST', token: u.token })).status).toBe(200);
+    const list = await api('/quizzes/bookmarks', { token: u.token });
+    expect((list.body as { bookmarks: Array<{ id: string }> }).bookmarks.map((b) => b.id)).toEqual([q1]);
+    const start = await api('/quizzes/start', { method: 'POST', token: u.token, body: { mode: 'bookmarks' } });
+    expect(start.status).toBe(200);
+    expect((start.body as { questions: Array<{ id: string }> }).questions.map((q) => q.id)).toEqual([q1]);
+    expect((await api(`/quizzes/bookmarks/${q1}`, { method: 'DELETE', token: u.token })).status).toBe(200);
+    expect((await api('/quizzes/start', { method: 'POST', token: u.token, body: { mode: 'bookmarks' } })).status).toBe(400);
+  });
+
+  it('editing an approved question snapshots a version and sends it back to review', async () => {
+    const qid = await seedQuestion({});
+    const admin = await registerUser('editor1');
+    await makeAdmin(admin.id, 'admin');
+    const current = await api(`/admin/questions/${qid}`, { token: admin.token });
+    expect(current.status).toBe(200);
+    const q = (current.body as { question: Record<string, unknown> }).question;
+    const res = await api(`/admin/questions/${qid}`, {
+      method: 'PUT',
+      token: admin.token,
+      body: {
+        type: q.type, categoryId: q.categoryId ?? null, difficulty: q.difficulty, language: q.language,
+        content: { ...(q.content as Record<string, unknown>), prompt: { en: 'Edited prompt' } },
+        correctAnswer: 'o1', configuration: {}, points: 10, timeLimitSec: 30, explanation: {}, tags: [],
+      },
+    });
+    expect(res.status).toBe(200);
+    const row = await query('SELECT status, version FROM questions WHERE id = $1', [qid]);
+    expect(row.rows[0].status).toBe('pending_review');
+    expect(Number(row.rows[0].version)).toBe(2);
+    const versions = await query('SELECT count(*) AS n FROM question_versions WHERE question_id = $1', [qid]);
+    expect(Number(versions.rows[0].n)).toBe(1);
+  });
+
+  it('archiving a question as wrong refunds this month\'s competitive losers', async () => {
+    const qid = await seedQuestion({});
+    await seedQuestion({});
+    const u = await registerUser('victim');
+    const start = await api('/quizzes/start', { method: 'POST', token: u.token, body: { mode: 'timed', questionCount: 2 } });
+    const { attemptId, questions } = start.body as { attemptId: string; questions: Array<{ id: string }> };
+    for (const qq of questions) {
+      await api(`/quizzes/attempts/${attemptId}/answers`, { method: 'POST', token: u.token, body: { questionId: qq.id, answer: qq.id === qid ? 'o2' : 'o1' } });
+    }
+    await api(`/quizzes/attempts/${attemptId}/submit`, { method: 'POST', token: u.token });
+    const before = Number((await query('SELECT total_points FROM users WHERE id = $1', [u.id])).rows[0].total_points);
+    const admin = await registerUser('mod1');
+    await makeAdmin(admin.id, 'admin');
+    const res = await api(`/admin/questions/${qid}/status`, { method: 'POST', token: admin.token, body: { status: 'archived', note: 'wrong answer key' } });
+    expect(res.status).toBe(200);
+    const after = Number((await query('SELECT total_points FROM users WHERE id = $1', [u.id])).rows[0].total_points);
+    expect(after).toBe(before + 10);
+    const notif = await query(`SELECT count(*) AS n FROM notifications WHERE user_id = $1 AND kind = 'system'`, [u.id]);
+    expect(Number(notif.rows[0].n)).toBe(1);
+  });
+});
+
 describe('competitive fairness', () => {
   beforeEach(resetDb);
 

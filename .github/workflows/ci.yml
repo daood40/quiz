@@ -42,3 +42,22 @@ jobs:
         run: npm run build
       - name: Dependency audit (high+)
         run: npm audit --omit=dev --audit-level=high
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build static demo (same flags as the Pages deploy)
+        run: npm run build --workspace=web
+        env:
+          VITE_DEMO: '1'
+          VITE_BASE: /quiz/
+      - name: Install Chromium
+        run: npx --workspace=web playwright install --with-deps chromium
+      - name: Smoke E2E (mobile AR + desktop EN)
+        run: npm run e2e --workspace=web

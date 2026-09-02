@@ -159,7 +159,8 @@ export async function startAttempt(userId: string, isGuest: boolean, opts: Start
   const powerups = {
     fiftyFifty: settings.powerupFiftyFifty,
     timeExtend: untimed ? 0 : settings.powerupTimeExtend,
-    used: {} as Record<string, { fiftyFifty?: string[]; timeExtend?: boolean }>,
+    audience: 1, // "ask the audience" once per round (Millionaire-style)
+    used: {} as Record<string, { fiftyFifty?: string[]; timeExtend?: boolean; audience?: boolean }>,
   };
 
   const contextType = opts.contextType ?? 'solo';
@@ -197,7 +198,7 @@ export async function startAttempt(userId: string, isGuest: boolean, opts: Start
     deadlineAt: attempt.deadline_at,
     mode: opts.mode,
     untimed,
-    powerups: { fiftyFifty: powerups.fiftyFifty, timeExtend: powerups.timeExtend },
+    powerups: { fiftyFifty: powerups.fiftyFifty, timeExtend: powerups.timeExtend, audience: powerups.audience },
     questions: ordered.map((id) => presentQuestion(questions.get(id)!, perQuestion[id].timeLimitSec)),
   };
 }
@@ -219,7 +220,8 @@ interface AttemptRow {
     powerups?: {
       fiftyFifty: number;
       timeExtend: number;
-      used: Record<string, { fiftyFifty?: string[]; timeExtend?: boolean }>;
+      audience?: number;
+      used: Record<string, { fiftyFifty?: string[]; timeExtend?: boolean; audience?: boolean }>;
     };
   };
   status: string;
@@ -402,6 +404,17 @@ async function answerQuestionTx(
       [attemptId, new Date(now).toISOString(), roundStreak],
     );
 
+    // per-option distribution (feeds the "ask the audience" lifeline)
+    const pickedOption =
+      typeof answer === 'string' ? answer : (answer as { optionId?: unknown } | null)?.optionId;
+    if (typeof pickedOption === 'string' && pickedOption.length <= 64) {
+      await client.query(
+        `INSERT INTO question_option_stats (question_id, option_id, picks) VALUES ($1, $2, 1)
+         ON CONFLICT (question_id, option_id) DO UPDATE SET picks = question_option_stats.picks + 1`,
+        [questionId, pickedOption],
+      );
+    }
+
     // live per-question stats
     await client.query(
       `UPDATE question_stats SET
@@ -435,7 +448,7 @@ export async function usePowerup(
   attemptId: string,
   userId: string,
   questionId: string,
-  kind: 'fifty_fifty' | 'time_extend',
+  kind: 'fifty_fifty' | 'time_extend' | 'audience',
 ) {
   const settings = await getSettings();
   return withTransaction(async (client) => {
@@ -451,6 +464,36 @@ export async function usePowerup(
     const meta = attempt.question_meta;
     const powerups = meta.powerups ?? { fiftyFifty: 0, timeExtend: 0, used: {} };
     const used = powerups.used[questionId] ?? {};
+
+    if (kind === 'audience') {
+      // "Ask the audience": real pick distribution from other players; when the
+      // question is young, blend a correct-leaning prior so the hint stays useful.
+      if (powerups.audience !== undefined && powerups.audience <= 0) throw conflict('No audience power-ups left');
+      const qRows = await client.query('SELECT content, correct_answer FROM questions WHERE id = $1', [questionId]);
+      const q = qRows.rows[0];
+      if (!q) throw notFound('Question not found');
+      const options = Array.isArray(q.content?.options) ? (q.content.options as Array<{ id: string }>) : [];
+      if (options.length < 2) throw badRequest('Audience is not available for this question');
+      const correct =
+        typeof q.correct_answer === 'string' ? q.correct_answer : String((q.correct_answer as { optionId?: string })?.optionId ?? '');
+      const stats = await client.query('SELECT option_id, picks FROM question_option_stats WHERE question_id = $1', [questionId]);
+      const picks = new Map<string, number>(stats.rows.map((r) => [String(r.option_id), Number(r.picks)]));
+      const total = [...picks.values()].reduce((a, b) => a + b, 0);
+      const prior = 12; // pseudo-counts: 60% on the correct option, rest spread
+      const weights = options.map((o) => {
+        const base = o.id === correct ? prior * 0.6 : (prior * 0.4) / Math.max(1, options.length - 1);
+        return base + (picks.get(o.id) ?? 0);
+      });
+      const sum = weights.reduce((a, b) => a + b, 0) || 1;
+      const distribution = options.map((o, i) => ({ optionId: o.id, percent: Math.round((weights[i] / sum) * 100) }));
+      powerups.audience = (powerups.audience ?? 1) - 1;
+      powerups.used[questionId] = { ...used, audience: true };
+      await client.query(
+        `UPDATE attempts SET question_meta = jsonb_set(question_meta, '{powerups}', $2::jsonb) WHERE id = $1`,
+        [attemptId, JSON.stringify(powerups)],
+      );
+      return { kind, distribution, sample: total, remaining: powerups.audience };
+    }
 
     if (kind === 'fifty_fifty') {
       if (used.fiftyFifty) return { kind, removedOptionIds: used.fiftyFifty, remaining: powerups.fiftyFifty };

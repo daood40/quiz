@@ -25,6 +25,8 @@ interface AttemptRow {
 
 export function HomePage() {
   const { t, pick, lang } = useI18n();
+  const [showTip, setShowTip] = useState(() => { try { return !localStorage.getItem('tipSeen'); } catch { return false; } });
+  const dismissTip = () => { setShowTip(false); try { localStorage.setItem('tipSeen', '1'); } catch { /* ignore */ } };
   const { user } = useAuth();
   const nav = useNavigate();
   const [categories, setCategories] = useState<Category[] | null>(null);
@@ -104,6 +106,12 @@ export function HomePage() {
         </div>
       </div>
 
+      {showTip && (
+        <div className="banner info row between" style={{ marginBottom: 16 }}>
+          <span>💡 {t('welcomeTip')}</span>
+          <button className="btn ghost sm" onClick={dismissTip} aria-label="✕">✕</button>
+        </div>
+      )}
       <div className="card">
         <h2>{t('categories')}</h2>
         {!categories ? (

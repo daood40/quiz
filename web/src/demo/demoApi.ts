@@ -62,7 +62,7 @@ interface Attempt {
   startedAt: number;
   lastEventAt: number;
   untimed: boolean;
-  powerups: { fiftyFifty: number; timeExtend: number; used: Record<string, string[]> };
+  powerups: { fiftyFifty: number; timeExtend: number; audience?: number; used: Record<string, string[]> };
   perQuestion: Record<string, number>;
   score: number;
   maxScore: number;
@@ -71,6 +71,7 @@ interface Attempt {
   speedBonus?: number; // multiplier: 0 (knowledge) · 1 · 2 (speed)
 }
 interface DemoState {
+  bookmarks?: string[];
   user: DemoUser;
   attempts: Attempt[];
   wrongPool: string[]; // question ids missed and not yet redeemed
@@ -189,7 +190,7 @@ function startAttempt(opts: { mode: string; categoryId?: string; difficulty?: st
     id: uid(), mode: opts.mode, status: 'in_progress',
     questionIds: picked.map((q) => q.id), answers: [],
     startedAt: Date.now(), lastEventAt: Date.now(), untimed,
-    powerups: { fiftyFifty: 2, timeExtend: untimed ? 0 : 1, used: {} },
+    powerups: { fiftyFifty: 2, timeExtend: untimed ? 0 : 1, audience: 1, used: {} },
     perQuestion,
     speedBonus: opts.mode === 'speed' ? 2 : knowledge ? 0 : 1,
     score: 0,
@@ -203,7 +204,7 @@ function startAttempt(opts: { mode: string; categoryId?: string; difficulty?: st
     deadlineAt: null,
     mode: opts.mode,
     untimed,
-    powerups: { fiftyFifty: attempt.powerups.fiftyFifty, timeExtend: attempt.powerups.timeExtend },
+    powerups: { fiftyFifty: attempt.powerups.fiftyFifty, timeExtend: attempt.powerups.timeExtend, audience: attempt.powerups.audience ?? 1 },
     questions: picked.map((q) => present(q, perQuestion[q.id])),
   };
 }
@@ -379,6 +380,11 @@ export async function demoApi(path: string, opts: { method?: string; body?: unkn
   if (route === '/quizzes/daily' && method === 'GET') {
     return { available: true, day: today(), questionCount: 10, myAttempt: state.dailyDone === today() ? { status: 'submitted', score: 0 } : null };
   }
+  if (route === '/quizzes/start' && method === 'POST' && body.mode === 'bookmarks') {
+    const ids = state.bookmarks ?? [];
+    if (ids.length === 0) throw new DemoError(400, 'bad_request', 'No bookmarked questions yet');
+    return startAttempt({ mode: 'practice', count: ids.length, ids });
+  }
   if (route === '/quizzes/start' && method === 'POST') {
     const mode = (body.mode as string) ?? 'practice';
     if (mode === 'daily') {
@@ -402,12 +408,39 @@ export async function demoApi(path: string, opts: { method?: string; body?: unkn
   const answerMatch = route.match(/^\/quizzes\/attempts\/([^/]+)\/answers$/);
   if (answerMatch && method === 'POST') return answerQuestion(answerMatch[1], body.questionId as string, body.answer);
 
+  // bookmarks (Quizlet-style save-to-study), persisted with the rest of the demo state
+  if (route === '/quizzes/bookmarks' && method === 'GET') {
+    const ids = state.bookmarks ?? [];
+    return { bookmarks: ids.map((id) => QBY.get(id)).filter(Boolean).map((q) => ({ id: q!.id, type: q!.type, difficulty: q!.difficulty, prompt: q!.content.prompt })) };
+  }
+  const bmMatch = route.match(/^\/quizzes\/bookmarks\/([^/]+)$/);
+  if (bmMatch && (method === 'POST' || method === 'DELETE')) {
+    const id = bmMatch[1];
+    const set = new Set(state.bookmarks ?? []);
+    if (method === 'POST') set.add(id); else set.delete(id);
+    state.bookmarks = [...set];
+    save();
+    return { ok: true, bookmarked: method === 'POST' };
+  }
+
   const powerupMatch = route.match(/^\/quizzes\/attempts\/([^/]+)\/powerups$/);
   if (powerupMatch && method === 'POST') {
     const a = getAttempt(powerupMatch[1]);
     const qid = body.questionId as string;
     const q = QBY.get(qid);
     if (!q) throw new DemoError(404, 'not_found', 'Question not found');
+    if (body.kind === 'audience') {
+      if ((a.powerups.audience ?? 1) <= 0) throw new DemoError(409, 'conflict', 'No audience power-ups left');
+      const options = Array.isArray(q.content.options) ? (q.content.options as Array<{ id: string }>) : [];
+      if (options.length < 2) throw new DemoError(400, 'bad_request', 'Audience is not available for this question');
+      const correct = typeof q.correctAnswer === 'string' ? q.correctAnswer : '';
+      // simulated crowd: correct-leaning with noise (no other players in the demo)
+      const raw = options.map((o) => (o.id === correct ? 45 + Math.random() * 30 : 5 + Math.random() * 25));
+      const sum = raw.reduce((x, y) => x + y, 0);
+      a.powerups.audience = (a.powerups.audience ?? 1) - 1;
+      save();
+      return { kind: 'audience', distribution: options.map((o, i) => ({ optionId: o.id, percent: Math.round((raw[i] / sum) * 100) })), sample: 0, remaining: a.powerups.audience };
+    }
     if (body.kind === 'fifty_fifty') {
       if (a.powerups.used[qid]) return { kind: 'fifty_fifty', removedOptionIds: a.powerups.used[qid], remaining: a.powerups.fiftyFifty };
       if (a.powerups.fiftyFifty <= 0) throw new DemoError(409, 'conflict', 'No 50/50 power-ups left');

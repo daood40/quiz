@@ -1,18 +1,32 @@
 # PROJECT_STATUS — حالة المشروع
 
-**آخر تحديث:** 2026-08-28 · **المرجع الملزم:** [docs/QUIZ_MASTER_DIRECTIVE_v2.md](docs/QUIZ_MASTER_DIRECTIVE_v2.md)
+**آخر تحديث:** 2026-09-02 · **المرجع الملزم:** [docs/QUIZ_MASTER_DIRECTIVE_v2.md](docs/QUIZ_MASTER_DIRECTIVE_v2.md)
 
 ## الحالة الآن
 
 | البند | الحالة |
 |---|---|
 | الكود | منصة كاملة مستوردة من `daood40/falah` (فرع quiz-platform-build): خادم Fastify + PostgreSQL، واجهة React، 80 نوع سؤال على 13 عائلة، تحكيم خادمي كامل |
-| CI | ✅ أخضر: typecheck + 81 اختبارًا (تكامل على PostgreSQL حقيقية) + بناء + `npm audit --audit-level=high` |
-| النشر | ✅ حي: Pages مفعّل والنشر يعمل — `https://daood40.github.io/quiz/` يتحدث تلقائيًا مع كل push |
+| CI | ✅ أخضر: typecheck + 91 اختبارًا (تكامل على PostgreSQL حقيقية) + بناء + `npm audit --audit-level=high` + دخان E2E (Playwright، جوال عربي + سطح مكتب إنجليزي) |
+| النشر | ✅ حي: Pages مفعّل والنشر يعمل — `https://daood40.github.io/quiz/` يتحدث تلقائيًا مع كل push. النسخة الكاملة: `Dockerfile` + `docker-compose.yml` + `render.yaml` + `fly.toml` جاهزة (تبقى استضافة الخادم قرار المالك) |
 | الحوكمة | التوجيه v2 معتمد في `docs/`؛ القرارات السبعة في [docs/adr/](docs/adr/)؛ تحليل الفجوات في [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md) |
 | أولوية التوجيه رقم 1 (نقل الحكم للخادم) | ✅ محققة أصلًا — لا منطق تصحيح/وقت/نقاط في عميل النسخة الكاملة (ADR-001)؛ الـ Demo استثناء معتمد (ADR-006) |
 
 ## سجل الجلسات
+
+### 2026-09-02 (ثالثًا) — جاهزية الإنتاج 100%
+- نشر النسخة الكاملة بأمر واحد: `Dockerfile` متعدد المراحل (HEALTHCHECK، مستخدم
+  غير جذر)، `docker-compose.yml` (db + api)، `render.yaml`، `fly.toml`؛ الدليل في
+  `docs/DEPLOYMENT.md` + قسم في README.
+- اكتمال المنتج: صفحات الخصوصية والشروط (عربي/إنجليزي)، صفحة 404، تذييل،
+  رابط تخطٍّ للمحتوى، وسوم OG/Twitter/canonical، `robots.txt` + `sitemap.xml`،
+  تلميح أول تشغيل.
+- بقايا التوجيه: مساعدة الجمهور (§ توزيع الإجابات الفعلي من `question_option_stats`)،
+  `question_versions` + عودة المعدَّل إلى المراجعة (§13)، إرجاع نقاط الموسم عند
+  أرشفة سؤال خاطئ (§13)، قاعدة مصدر تصنيف الدين (§10)، إشارات مرجعية
+  ووضع "المحفوظة". الهجرة `003_parity_features.sql`. 4 اختبارات تكامل جديدة.
+- بنك عربي: 38 سؤالًا عربيًا في `seed_ar.ts` (الخادم) وبنك الـ Demo → 154 سؤالًا.
+- E2E: `web/e2e/smoke.mjs` (Playwright) + وظيفة `e2e` في CI.
 
 ### 2026-09-02 (لاحقًا) — كتالوج 100 تطبيق + دفعة مطابقة ثانية
 - `docs/COMPETITOR_ANALYSIS.md` أُعيدت كتابته: ~100 تطبيق، كتالوج مميزات
@@ -68,10 +82,11 @@
 
 1. ~~حزمة النقاط (§16)~~ ✅ أُنجزت (streak داخل الجولة + سقف يومي + تثبيط
    الأسئلة الجديدة + عزل practice عن التنافس).
-2. `user_question_history` بمنع 90 يومًا في التنافسي + Grace ‏1.5s (§9، §15).
-3. قاعدة مصدر تصنيف الدين (§10) + `question_versions` وإرجاع النقاط (§13).
+2. ~~`user_question_history` بمنع 90 يومًا + Grace~~ ✅ (`pool.ts` 90 يومًا، grace في الإعدادات).
+3. ~~قاعدة مصدر تصنيف الدين (§10) + `question_versions` وإرجاع النقاط (§13)~~ ✅ أُنجزت.
 4. إعدادات الخصوصية وFollow (§20).
-5. البقية بحسب [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md) ومراحل §41.
+5. استضافة الخادم (قرار المالك: Docker/Render/Fly/Railway) ثم توجيه Pages إلى `VITE_API_URL`.
+6. البقية بحسب [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md) ومراحل §41.
 
 > قاعدة التحديث (الملحق ز): كل جلسة عمل تُنهى بتحديث هذا الملف — ما أُنجز،
 > وما تغيّر في الفجوات، وما التالي.

@@ -76,13 +76,20 @@ npm run dev               # API على :3001 والواجهة على :5173
 التفاصيل الكاملة خطوة بخطوة في [README.en.md](README.en.md)
 و[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
+## نشر النسخة الكاملة (الخادم + قاعدة البيانات)
+
+بأمر واحد على أي خادم: `docker compose up -d --build` (ملفات `Dockerfile` و
+`docker-compose.yml` جاهزة)، أو بضغطة زر على **Render** (`render.yaml`)،
+أو **Fly.io** (`fly.toml`)، أو **Railway**. الخطوات كاملة في
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## النشر التلقائي
 
 - **‎.github/workflows/pages.yml** — مع كل push على الفرع الافتراضي يبني
   الواجهة بوضع Demo (بـ `VITE_DEMO=1` ومسار أساس `‎/quiz/‎` ليطابق
   `daood40.github.io/quiz/`) ثم ينشرها على GitHub Pages تلقائيًا.
 - **‎.github/workflows/ci.yml** — مع كل push يشغّل فحص الأنواع والاختبارات
-  (73 اختبارًا على PostgreSQL حقيقية) والبناء الكامل.
+  (91 اختبارًا على PostgreSQL حقيقية) والبناء الكامل ودخان E2E بـ Playwright.
 
 ## بنية المستودع
 

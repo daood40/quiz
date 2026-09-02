@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { audit } from '../../core/audit.js';
-import { notFound, validationError } from '../../core/errors.js';
+import { badRequest, notFound, validationError } from '../../core/errors.js';
 import { query } from '../../db/pool.js';
 import { normalizeText } from './engine/normalize.js';
 import { registry } from './engine/registry.js';
@@ -141,6 +141,19 @@ export async function createQuestion(input: QuestionInput, createdBy: string | n
 
 export async function updateQuestion(id: string, input: QuestionInput, actor: string | null): Promise<void> {
   validateQuestionOrThrow(input);
+  // full history: snapshot the current row as version N, bump to N+1;
+  // an approved question that gets edited goes back to review (directive §13)
+  await query(
+    `INSERT INTO question_versions (question_id, version, snapshot, edited_by)
+     SELECT id, version, to_jsonb(questions.*) - 'content_hash', $2 FROM questions WHERE id = $1`,
+    [id, actor],
+  );
+  await query(
+    `UPDATE questions SET version = version + 1,
+       status = CASE WHEN status = 'approved' THEN 'pending_review' ELSE status END
+     WHERE id = $1`,
+    [id],
+  );
   const hash = computeContentHash(input.type, input.content, input.correctAnswer);
   const { rowCount } = await query(
     `UPDATE questions SET
@@ -178,12 +191,61 @@ export async function setQuestionStatus(
   actor: string | null,
   note = '',
 ): Promise<void> {
+  if (status === 'approved') {
+    // Directive §10: religion-category questions need a documented source before approval
+    const chk = await query<{ slug: string | null; source: string | null; source_url: string | null }>(
+      `SELECT c.slug, q.source, q.source_url FROM questions q LEFT JOIN categories c ON c.id = q.category_id WHERE q.id = $1`,
+      [id],
+    );
+    const row = chk.rows[0];
+    if (!row) throw notFound('Question not found');
+    if (row.slug && /islamic|religion|quran|hadith|دين/i.test(row.slug) && !row.source && !row.source_url) {
+      throw badRequest('Religion-category questions require a source before approval');
+    }
+  }
   const { rowCount } = await query(
     `UPDATE questions SET status=$2, review_note=$3, reviewed_by=$4, updated_at=now() WHERE id=$1`,
     [id, status, note, actor],
   );
   if (!rowCount) throw notFound('Question not found');
   audit(actor, `question.${status}`, 'question', id, { note });
+  if (status === 'archived' && /wrong|incorrect|خطأ|خاطئ|refund/i.test(note)) {
+    await refundQuestionThisSeason(id, actor);
+  }
+}
+
+/**
+ * A question confirmed wrong is archived; everyone who lost points on it this
+ * month gets the question's max points credited (directive §13 appeals).
+ */
+export async function refundQuestionThisSeason(questionId: string, actor: string | null): Promise<number> {
+  const { rows } = await query<{ user_id: string; max_score: number }>(
+    `SELECT a.user_id, max(aa.max_score) AS max_score
+     FROM attempt_answers aa JOIN attempts a ON a.id = aa.attempt_id
+     WHERE aa.question_id = $1 AND aa.outcome IN ('incorrect','timeout','partial')
+       AND a.status = 'submitted' AND a.submitted_at >= date_trunc('month', now())
+       AND a.mode NOT IN ('practice','review')
+     GROUP BY a.user_id`,
+    [questionId],
+  );
+  for (const r of rows) {
+    const pts = Number(r.max_score) || 0;
+    if (pts <= 0) continue;
+    await query(`UPDATE users SET total_points = total_points + $2 WHERE id = $1`, [r.user_id, pts]);
+    await query(
+      `UPDATE leaderboard_scores SET points = points + $2
+       WHERE user_id = $1 AND scope IN ('global','monthly') `,
+      [r.user_id, pts],
+    );
+    await query(
+      `INSERT INTO notifications (user_id, kind, title, body, data) VALUES ($1,'system',$2,$3,$4)`,
+      [r.user_id, JSON.stringify({ en: 'Points refunded', ar: 'تمت إعادة نقاطك' }),
+       JSON.stringify({ en: `A question was confirmed wrong — +${pts} points`, ar: `ثبت خطأ سؤال — +${pts} نقطة` }),
+       JSON.stringify({ questionId, points: pts })],
+    );
+  }
+  audit(actor, 'question.refund', 'question', questionId, { users: rows.length });
+  return rows.length;
 }
 
 export async function reportQuestion(

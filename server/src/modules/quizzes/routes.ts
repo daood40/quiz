@@ -10,7 +10,7 @@ import { ensureDailyQuiz } from './daily.js';
 
 const startSchema = z.object({
   mode: z
-    .enum(['practice', 'timed', 'speed', 'survival', 'knowledge', 'daily', 'challenge', 'competitive', 'random', 'category', 'difficulty', 'review'])
+    .enum(['practice', 'timed', 'speed', 'survival', 'knowledge', 'daily', 'bookmarks', 'challenge', 'competitive', 'random', 'category', 'difficulty', 'review'])
     .default('practice'),
   categoryId: z.string().uuid().nullish(),
   difficulty: z.enum(['easy', 'medium', 'hard', 'expert']).nullish(),
@@ -49,7 +49,41 @@ export async function quizRoutes(app: FastifyInstance): Promise<void> {
         fixedQuestionIds: daily.questionIds,
       });
     }
+    if (opts.mode === 'bookmarks') {
+      const saved = await query<{ question_id: string }>(
+        `SELECT b.question_id FROM question_bookmarks b JOIN questions q ON q.id = b.question_id
+         WHERE b.user_id = $1 AND q.status = 'approved' ORDER BY b.created_at DESC LIMIT $2`,
+        [req.userId, opts.questionCount ?? 10],
+      );
+      if (saved.rows.length === 0) throw badRequest('No bookmarked questions yet');
+      return startAttempt(req.userId!, req.isGuest, { ...opts, mode: 'practice', fixedQuestionIds: saved.rows.map((r) => r.question_id) });
+    }
     return startAttempt(req.userId!, req.isGuest, opts);
+  });
+
+  /** Bookmarks — save a question to study later (Quizlet-style). */
+  app.get('/bookmarks', { preHandler: [requireAuth] }, async (req) => {
+    const { rows } = await query(
+      `SELECT q.id, q.type, q.difficulty, q.content->'prompt' AS prompt, b.created_at
+       FROM question_bookmarks b JOIN questions q ON q.id = b.question_id
+       WHERE b.user_id = $1 ORDER BY b.created_at DESC LIMIT 200`,
+      [req.userId],
+    );
+    return { bookmarks: rows };
+  });
+  app.post('/bookmarks/:questionId', { preHandler: [requireAuth] }, async (req) => {
+    const { questionId } = req.params as { questionId: string };
+    if (!z.string().uuid().safeParse(questionId).success) throw badRequest('Invalid question id');
+    await query(
+      `INSERT INTO question_bookmarks (user_id, question_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [req.userId, questionId],
+    );
+    return { ok: true, bookmarked: true };
+  });
+  app.delete('/bookmarks/:questionId', { preHandler: [requireAuth] }, async (req) => {
+    const { questionId } = req.params as { questionId: string };
+    await query(`DELETE FROM question_bookmarks WHERE user_id = $1 AND question_id = $2`, [req.userId, questionId]);
+    return { ok: true, bookmarked: false };
   });
 
   /** Today's shared quiz status (played or not) + today's board key. */
@@ -74,7 +108,7 @@ export async function quizRoutes(app: FastifyInstance): Promise<void> {
   app.post('/attempts/:id/powerups', { preHandler: [requireAuth, answerLimiter] }, async (req) => {
     const { id } = req.params as { id: string };
     const parsed = z
-      .object({ kind: z.enum(['fifty_fifty', 'time_extend']), questionId: z.string().uuid() })
+      .object({ kind: z.enum(['fifty_fifty', 'time_extend', 'audience']), questionId: z.string().uuid() })
       .safeParse(req.body);
     if (!parsed.success) throw badRequest('Invalid power-up request', parsed.error.issues);
     return usePowerup(id, req.userId!, parsed.data.questionId, parsed.data.kind);

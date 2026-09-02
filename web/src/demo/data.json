@@ -3338,6 +3338,1390 @@
    "tags": [
     "crossword"
    ]
+  },
+  {
+   "id": "785f83a7-9b4b-4381-927e-b0515a01ec33",
+   "type": "multiple_choice",
+   "categoryId": "cb25833c-3904-4eb4-9fd5-26bcb3a73fbb",
+   "difficulty": "easy",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "كم عدد أيام السنة الكبيسة؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "366"
+     },
+     {
+      "id": "o2",
+      "text": "365"
+     },
+     {
+      "id": "o3",
+      "text": "364"
+     },
+     {
+      "id": "o4",
+      "text": "360"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {
+    "ar": "تُضاف يومًا إلى شهر فبراير كل أربع سنوات تقريبًا."
+   },
+   "tags": []
+  },
+  {
+   "id": "28c34d51-502a-4937-81ab-4652ed236830",
+   "type": "multiple_choice",
+   "categoryId": "cb25833c-3904-4eb4-9fd5-26bcb3a73fbb",
+   "difficulty": "easy",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما هي أكبر قارة في العالم من حيث المساحة؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "آسيا"
+     },
+     {
+      "id": "o2",
+      "text": "أفريقيا"
+     },
+     {
+      "id": "o3",
+      "text": "أوروبا"
+     },
+     {
+      "id": "o4",
+      "text": "أمريكا الشمالية"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "9fd12f0a-39a7-4231-a400-8fe20931a2dd",
+   "type": "multiple_choice",
+   "categoryId": "cb25833c-3904-4eb4-9fd5-26bcb3a73fbb",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما هي العملة الرسمية لليابان؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "الين"
+     },
+     {
+      "id": "o2",
+      "text": "اليوان"
+     },
+     {
+      "id": "o3",
+      "text": "الوون"
+     },
+     {
+      "id": "o4",
+      "text": "الروبية"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "9136cad8-1915-42d6-8b85-4bbc64768a94",
+   "type": "multiple_choice",
+   "categoryId": "cb25833c-3904-4eb4-9fd5-26bcb3a73fbb",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما هو أطول نهر في العالم بحسب أغلب المراجع؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "النيل"
+     },
+     {
+      "id": "o2",
+      "text": "الأمازون"
+     },
+     {
+      "id": "o3",
+      "text": "اليانغتسي"
+     },
+     {
+      "id": "o4",
+      "text": "المسيسيبي"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {
+    "ar": "يبلغ طول النيل نحو 6650 كم."
+   },
+   "tags": []
+  },
+  {
+   "id": "559c2232-f3ff-499c-8940-2655b5a6ad2f",
+   "type": "multiple_choice",
+   "categoryId": "cb25833c-3904-4eb4-9fd5-26bcb3a73fbb",
+   "difficulty": "hard",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "في أي عام أُسست منظمة الأمم المتحدة؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "1945"
+     },
+     {
+      "id": "o2",
+      "text": "1919"
+     },
+     {
+      "id": "o3",
+      "text": "1950"
+     },
+     {
+      "id": "o4",
+      "text": "1939"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "7045257d-a5b6-46d3-bb00-fed19eb5f5bc",
+   "type": "multiple_choice",
+   "categoryId": "eee76cd2-3759-4f47-9638-cf60d0c948b7",
+   "difficulty": "easy",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما هو الغاز الذي تمتصه النباتات من الهواء أثناء البناء الضوئي؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "ثاني أكسيد الكربون"
+     },
+     {
+      "id": "o2",
+      "text": "الأكسجين"
+     },
+     {
+      "id": "o3",
+      "text": "النيتروجين"
+     },
+     {
+      "id": "o4",
+      "text": "الهيدروجين"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "941744d7-5f4d-4a16-beb7-692886d8090f",
+   "type": "multiple_choice",
+   "categoryId": "eee76cd2-3759-4f47-9638-cf60d0c948b7",
+   "difficulty": "easy",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "كم عدد كواكب المجموعة الشمسية؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "8"
+     },
+     {
+      "id": "o2",
+      "text": "9"
+     },
+     {
+      "id": "o3",
+      "text": "7"
+     },
+     {
+      "id": "o4",
+      "text": "10"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {
+    "ar": "أُعيد تصنيف بلوتو كوكبًا قزمًا عام 2006."
+   },
+   "tags": []
+  },
+  {
+   "id": "3ee1aa68-84e5-4943-aee9-b25bcf548d91",
+   "type": "multiple_choice",
+   "categoryId": "eee76cd2-3759-4f47-9638-cf60d0c948b7",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما هو الرمز الكيميائي للذهب؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "Au"
+     },
+     {
+      "id": "o2",
+      "text": "Ag"
+     },
+     {
+      "id": "o3",
+      "text": "Gd"
+     },
+     {
+      "id": "o4",
+      "text": "Go"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "498abebf-7efc-4f8a-89a5-9bb9cc610bd0",
+   "type": "multiple_choice",
+   "categoryId": "eee76cd2-3759-4f47-9638-cf60d0c948b7",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما هو أصغر عظم في جسم الإنسان؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "الرِّكاب"
+     },
+     {
+      "id": "o2",
+      "text": "السندان"
+     },
+     {
+      "id": "o3",
+      "text": "المطرقة"
+     },
+     {
+      "id": "o4",
+      "text": "الفَخِذ"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {
+    "ar": "عظم الرِّكاب في الأذن الوسطى طوله نحو 3 مم."
+   },
+   "tags": []
+  },
+  {
+   "id": "e559763a-7cf5-404d-9bf7-63555e35c3b6",
+   "type": "multiple_choice",
+   "categoryId": "eee76cd2-3759-4f47-9638-cf60d0c948b7",
+   "difficulty": "hard",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما سرعة الضوء في الفراغ تقريبًا؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "300,000 كم/ث"
+     },
+     {
+      "id": "o2",
+      "text": "150,000 كم/ث"
+     },
+     {
+      "id": "o3",
+      "text": "3,000 كم/ث"
+     },
+     {
+      "id": "o4",
+      "text": "30,000 كم/ث"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "38022855-d65f-416c-9a09-0f7fd5c3ef49",
+   "type": "multiple_choice",
+   "categoryId": "eee76cd2-3759-4f47-9638-cf60d0c948b7",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "أي كوكب يُعرف بالكوكب الأحمر؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "المريخ"
+     },
+     {
+      "id": "o2",
+      "text": "الزهرة"
+     },
+     {
+      "id": "o3",
+      "text": "المشتري"
+     },
+     {
+      "id": "o4",
+      "text": "زحل"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "6d4de026-1751-4f88-be24-5264f51e6619",
+   "type": "multiple_choice",
+   "categoryId": "cd5b4fb7-f70f-45ae-83d9-6be6ee3f755f",
+   "difficulty": "easy",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "في أي عام انتهت الحرب العالمية الثانية؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "1945"
+     },
+     {
+      "id": "o2",
+      "text": "1918"
+     },
+     {
+      "id": "o3",
+      "text": "1939"
+     },
+     {
+      "id": "o4",
+      "text": "1950"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "b95ea5fa-f117-4ced-80f2-60cc6f4a3647",
+   "type": "multiple_choice",
+   "categoryId": "cd5b4fb7-f70f-45ae-83d9-6be6ee3f755f",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "من هو أول من وصل إلى القطب الجنوبي؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "روالد أموندسن"
+     },
+     {
+      "id": "o2",
+      "text": "روبرت سكوت"
+     },
+     {
+      "id": "o3",
+      "text": "إرنست شاكلتون"
+     },
+     {
+      "id": "o4",
+      "text": "جيمس كوك"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {
+    "ar": "وصل أموندسن في ديسمبر 1911."
+   },
+   "tags": []
+  },
+  {
+   "id": "04b9ca46-857b-4015-b039-6c82953792ba",
+   "type": "multiple_choice",
+   "categoryId": "cd5b4fb7-f70f-45ae-83d9-6be6ee3f755f",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما اسم الحضارة التي بنت أهرامات الجيزة؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "المصرية القديمة"
+     },
+     {
+      "id": "o2",
+      "text": "البابلية"
+     },
+     {
+      "id": "o3",
+      "text": "الرومانية"
+     },
+     {
+      "id": "o4",
+      "text": "الإغريقية"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "72b61c4a-ffa2-41c2-b88d-d5ba04390bef",
+   "type": "multiple_choice",
+   "categoryId": "cd5b4fb7-f70f-45ae-83d9-6be6ee3f755f",
+   "difficulty": "hard",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "في أي عام سقطت القسطنطينية بيد العثمانيين؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "1453"
+     },
+     {
+      "id": "o2",
+      "text": "1492"
+     },
+     {
+      "id": "o3",
+      "text": "1517"
+     },
+     {
+      "id": "o4",
+      "text": "1389"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "c16e969a-3505-4ac7-99d0-11a066943238",
+   "type": "multiple_choice",
+   "categoryId": "8479856f-c332-4c1a-821f-13bac25ea65a",
+   "difficulty": "easy",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما هي عاصمة المملكة العربية السعودية؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "الرياض"
+     },
+     {
+      "id": "o2",
+      "text": "جدة"
+     },
+     {
+      "id": "o3",
+      "text": "مكة المكرمة"
+     },
+     {
+      "id": "o4",
+      "text": "الدمام"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "c4c1355f-8fbe-4b6d-b482-aecf78a81bdd",
+   "type": "multiple_choice",
+   "categoryId": "8479856f-c332-4c1a-821f-13bac25ea65a",
+   "difficulty": "easy",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما هي عاصمة مصر؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "القاهرة"
+     },
+     {
+      "id": "o2",
+      "text": "الإسكندرية"
+     },
+     {
+      "id": "o3",
+      "text": "الجيزة"
+     },
+     {
+      "id": "o4",
+      "text": "أسوان"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "987730ec-5b6d-4018-bc40-2e80420208a0",
+   "type": "multiple_choice",
+   "categoryId": "8479856f-c332-4c1a-821f-13bac25ea65a",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما هو أعلى جبل في العالم؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "إفرست"
+     },
+     {
+      "id": "o2",
+      "text": "كي 2"
+     },
+     {
+      "id": "o3",
+      "text": "كليمنجارو"
+     },
+     {
+      "id": "o4",
+      "text": "مون بلان"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {
+    "ar": "يبلغ ارتفاعه نحو 8849 مترًا."
+   },
+   "tags": []
+  },
+  {
+   "id": "d13d417d-6387-4a22-8f40-f0e4864244f9",
+   "type": "multiple_choice",
+   "categoryId": "8479856f-c332-4c1a-821f-13bac25ea65a",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "أي محيط هو الأكبر مساحةً؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "الهادئ"
+     },
+     {
+      "id": "o2",
+      "text": "الأطلسي"
+     },
+     {
+      "id": "o3",
+      "text": "الهندي"
+     },
+     {
+      "id": "o4",
+      "text": "المتجمد الشمالي"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "52859268-144e-4c89-8b1c-30d00b439701",
+   "type": "multiple_choice",
+   "categoryId": "8479856f-c332-4c1a-821f-13bac25ea65a",
+   "difficulty": "hard",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما هي أكبر دولة عربية من حيث المساحة؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "الجزائر"
+     },
+     {
+      "id": "o2",
+      "text": "السعودية"
+     },
+     {
+      "id": "o3",
+      "text": "السودان"
+     },
+     {
+      "id": "o4",
+      "text": "ليبيا"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {
+    "ar": "تبلغ مساحة الجزائر نحو 2.38 مليون كم²."
+   },
+   "tags": []
+  },
+  {
+   "id": "8ec080df-7509-4e7e-ac73-6f2a1b65b452",
+   "type": "multiple_choice",
+   "categoryId": "6344c4e3-2bc6-481b-8318-c66ec40ce243",
+   "difficulty": "easy",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "كم عدد لاعبي فريق كرة القدم داخل الملعب؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "11"
+     },
+     {
+      "id": "o2",
+      "text": "10"
+     },
+     {
+      "id": "o3",
+      "text": "12"
+     },
+     {
+      "id": "o4",
+      "text": "9"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "05843db8-a320-4dd9-af15-86d9f30b40ac",
+   "type": "multiple_choice",
+   "categoryId": "6344c4e3-2bc6-481b-8318-c66ec40ce243",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "أي دولة استضافت كأس العالم لكرة القدم 2022؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "قطر"
+     },
+     {
+      "id": "o2",
+      "text": "روسيا"
+     },
+     {
+      "id": "o3",
+      "text": "البرازيل"
+     },
+     {
+      "id": "o4",
+      "text": "ألمانيا"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "92642567-ab54-4ce0-8ed6-05ff4f38616a",
+   "type": "multiple_choice",
+   "categoryId": "6344c4e3-2bc6-481b-8318-c66ec40ce243",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "كم عدد حلقات الشعار الأولمبي؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "5"
+     },
+     {
+      "id": "o2",
+      "text": "4"
+     },
+     {
+      "id": "o3",
+      "text": "6"
+     },
+     {
+      "id": "o4",
+      "text": "3"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {
+    "ar": "تمثل الحلقات الخمس القارات المأهولة."
+   },
+   "tags": []
+  },
+  {
+   "id": "6f057461-a8c2-4a92-af98-f4adbbd75056",
+   "type": "multiple_choice",
+   "categoryId": "6344c4e3-2bc6-481b-8318-c66ec40ce243",
+   "difficulty": "hard",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "في أي رياضة يُستخدم مصطلح \"الضربة الساحقة\" (Smash)؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "كرة الطاولة"
+     },
+     {
+      "id": "o2",
+      "text": "الملاكمة"
+     },
+     {
+      "id": "o3",
+      "text": "الجولف"
+     },
+     {
+      "id": "o4",
+      "text": "الرماية"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "4654c99b-e80d-4eda-823b-9bd7f7ace832",
+   "type": "multiple_choice",
+   "categoryId": "4899693e-0e58-42bf-b04e-ed13bc4bea36",
+   "difficulty": "easy",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما معنى الاختصار CPU؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "وحدة المعالجة المركزية"
+     },
+     {
+      "id": "o2",
+      "text": "وحدة التخزين المركزية"
+     },
+     {
+      "id": "o3",
+      "text": "برنامج التحكم الأساسي"
+     },
+     {
+      "id": "o4",
+      "text": "وحدة الطاقة المركزية"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "03b26b43-9a94-423e-965d-22c8d3779704",
+   "type": "multiple_choice",
+   "categoryId": "4899693e-0e58-42bf-b04e-ed13bc4bea36",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "من هو مؤسس شركة مايكروسوفت مع بول ألن؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "بيل غيتس"
+     },
+     {
+      "id": "o2",
+      "text": "ستيف جوبز"
+     },
+     {
+      "id": "o3",
+      "text": "مارك زوكربيرغ"
+     },
+     {
+      "id": "o4",
+      "text": "إيلون ماسك"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "b120b46f-760c-4819-bc71-cc29d3e279db",
+   "type": "multiple_choice",
+   "categoryId": "4899693e-0e58-42bf-b04e-ed13bc4bea36",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما هي لغة البرمجة التي تعمل داخل متصفحات الويب أصلًا؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "JavaScript"
+     },
+     {
+      "id": "o2",
+      "text": "Python"
+     },
+     {
+      "id": "o3",
+      "text": "C++"
+     },
+     {
+      "id": "o4",
+      "text": "Java"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "02c11349-d052-4f87-8b30-2a359eaff698",
+   "type": "multiple_choice",
+   "categoryId": "4899693e-0e58-42bf-b04e-ed13bc4bea36",
+   "difficulty": "hard",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "كم بِت في البايت الواحد؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "8"
+     },
+     {
+      "id": "o2",
+      "text": "4"
+     },
+     {
+      "id": "o3",
+      "text": "16"
+     },
+     {
+      "id": "o4",
+      "text": "32"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "3077c51e-73fe-492b-88f2-e003dd511c38",
+   "type": "multiple_choice",
+   "categoryId": "e8d4cc32-0009-4aa9-9263-7adeece03be3",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "من مؤلف رواية \"البؤساء\"؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "فيكتور هوغو"
+     },
+     {
+      "id": "o2",
+      "text": "ألكسندر دوما"
+     },
+     {
+      "id": "o3",
+      "text": "إميل زولا"
+     },
+     {
+      "id": "o4",
+      "text": "غوستاف فلوبير"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "397d89e2-ba2f-4174-a1e8-2078499e8e1c",
+   "type": "multiple_choice",
+   "categoryId": "e8d4cc32-0009-4aa9-9263-7adeece03be3",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "من هو الشاعر الملقب بـ\"أمير الشعراء\"؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "أحمد شوقي"
+     },
+     {
+      "id": "o2",
+      "text": "حافظ إبراهيم"
+     },
+     {
+      "id": "o3",
+      "text": "المتنبي"
+     },
+     {
+      "id": "o4",
+      "text": "نزار قباني"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "0be787d9-60d2-4b7d-8af2-f325e5c93188",
+   "type": "multiple_choice",
+   "categoryId": "e8d4cc32-0009-4aa9-9263-7adeece03be3",
+   "difficulty": "hard",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "من صاحب كتاب \"مقدمة ابن خلدون\"؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "ابن خلدون"
+     },
+     {
+      "id": "o2",
+      "text": "ابن رشد"
+     },
+     {
+      "id": "o3",
+      "text": "الجاحظ"
+     },
+     {
+      "id": "o4",
+      "text": "ابن سينا"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "d197d977-9777-4bba-92fe-5c75a2011b39",
+   "type": "multiple_choice",
+   "categoryId": "f6dd8c70-4bcf-427c-914c-ab673ee7ae19",
+   "difficulty": "easy",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "كم عدد حروف الهجاء العربية؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "28"
+     },
+     {
+      "id": "o2",
+      "text": "26"
+     },
+     {
+      "id": "o3",
+      "text": "30"
+     },
+     {
+      "id": "o4",
+      "text": "29"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "2a5bc8c4-2cc7-4988-9edc-380d7e0a3e5c",
+   "type": "multiple_choice",
+   "categoryId": "f6dd8c70-4bcf-427c-914c-ab673ee7ae19",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما جمع كلمة \"كتاب\"؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "كُتُب"
+     },
+     {
+      "id": "o2",
+      "text": "كِتابات"
+     },
+     {
+      "id": "o3",
+      "text": "كاتبون"
+     },
+     {
+      "id": "o4",
+      "text": "مكاتب"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "69951d15-7fb8-4162-b158-8b01a9c3dc2d",
+   "type": "multiple_choice",
+   "categoryId": "f6dd8c70-4bcf-427c-914c-ab673ee7ae19",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما هي اللغة الأكثر تحدثًا كلغة أم في العالم؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "الصينية (الماندرين)"
+     },
+     {
+      "id": "o2",
+      "text": "الإنجليزية"
+     },
+     {
+      "id": "o3",
+      "text": "الإسبانية"
+     },
+     {
+      "id": "o4",
+      "text": "الهندية"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "917cc40e-5620-4e42-8172-4d0cebdc9ba7",
+   "type": "multiple_choice",
+   "categoryId": "380186fe-d147-495f-a6e1-34a3e33bbf82",
+   "difficulty": "easy",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما ناتج 12 × 12؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "144"
+     },
+     {
+      "id": "o2",
+      "text": "124"
+     },
+     {
+      "id": "o3",
+      "text": "132"
+     },
+     {
+      "id": "o4",
+      "text": "148"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "6b982dfa-006d-49bf-a5d4-1292bd97635d",
+   "type": "multiple_choice",
+   "categoryId": "380186fe-d147-495f-a6e1-34a3e33bbf82",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما هو العدد الأولي الوحيد الزوجي؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "2"
+     },
+     {
+      "id": "o2",
+      "text": "1"
+     },
+     {
+      "id": "o3",
+      "text": "4"
+     },
+     {
+      "id": "o4",
+      "text": "0"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "b6498092-3cb3-433d-97fe-d43bccca2226",
+   "type": "multiple_choice",
+   "categoryId": "380186fe-d147-495f-a6e1-34a3e33bbf82",
+   "difficulty": "medium",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "كم درجة مجموع زوايا المثلث؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "180"
+     },
+     {
+      "id": "o2",
+      "text": "90"
+     },
+     {
+      "id": "o3",
+      "text": "360"
+     },
+     {
+      "id": "o4",
+      "text": "270"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
+  },
+  {
+   "id": "90a90691-8e83-4602-a5d1-816f89ff82d6",
+   "type": "multiple_choice",
+   "categoryId": "380186fe-d147-495f-a6e1-34a3e33bbf82",
+   "difficulty": "hard",
+   "language": "ar",
+   "content": {
+    "prompt": {
+     "ar": "ما قيمة الجذر التربيعي للعدد 169؟"
+    },
+    "options": [
+     {
+      "id": "o1",
+      "text": "13"
+     },
+     {
+      "id": "o2",
+      "text": "12"
+     },
+     {
+      "id": "o3",
+      "text": "14"
+     },
+     {
+      "id": "o4",
+      "text": "17"
+     }
+    ]
+   },
+   "correctAnswer": "o1",
+   "configuration": {},
+   "points": 0,
+   "timeLimitSec": null,
+   "explanation": {},
+   "tags": []
   }
  ]
 }

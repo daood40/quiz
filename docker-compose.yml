@@ -1,0 +1,36 @@
+# Local/self-hosted production stack: API + SPA + PostgreSQL 16.
+#   docker compose up -d --build
+#   docker compose exec api node server/dist/db/seed.js   # first boot (admin + categories)
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: quiz
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: quiz_platform
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quiz -d quiz_platform"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgres://quiz:${POSTGRES_PASSWORD:-change_me}@db:5432/quiz_platform
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (openssl rand -hex 64)}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
+      JOBS_ENABLED: "true"
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@quiz.local}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-ChangeMe123!}
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+volumes:
+  pgdata:

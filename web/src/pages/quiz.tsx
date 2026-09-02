@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ApiError, get, post } from '../api';
+import { ApiError, del, get, post } from '../api';
 import { Spinner, StatBox, fmtMs, useOnline, useToast, useTypeSpecs } from '../components';
 import { useAuth } from '../ctx';
 import { useI18n } from '../i18n';
@@ -12,7 +12,7 @@ interface StartResponse {
   deadlineAt: string;
   mode?: string;
   untimed?: boolean;
-  powerups?: { fiftyFifty: number; timeExtend: number };
+  powerups?: { fiftyFifty: number; timeExtend: number; audience?: number };
   questions: PlayableQuestion[];
 }
 interface Feedback {
@@ -47,6 +47,7 @@ const MODES = [
   { id: 'survival', icon: '💀', untimed: false },
   { id: 'knowledge', icon: '🎓', untimed: false },
   { id: 'review', icon: '🔁', untimed: true },
+  { id: 'bookmarks', icon: '🔖', untimed: true },
 ] as const;
 
 export function PlayPage() {
@@ -104,6 +105,7 @@ export function PlayPage() {
     speed: { name: t('modeSpeed'), desc: t('modeSpeedDesc') },
     survival: { name: t('modeSurvival'), desc: t('modeSurvivalDesc') },
     knowledge: { name: t('modeKnowledge'), desc: t('modeKnowledgeDesc') },
+    bookmarks: { name: t('modeBookmarks'), desc: t('modeBookmarksDesc') },
   };
 
   return (
@@ -121,7 +123,7 @@ export function PlayPage() {
             ))}
           </div>
         )}
-        {mode !== 'review' && mode !== 'daily' && (
+        {mode !== 'review' && mode !== 'daily' && mode !== 'bookmarks' && (
           <>
             <div>
               <label className="fld">{t('category')}</label>
@@ -180,7 +182,34 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [timeLeft, setTimeLeft] = useState(session.questions[0]?.timeLimitSec ?? 30);
   const [feedback, setFeedback] = useState<{ outcome: string; data: Feedback | null } | null>(null);
-  const [powerups, setPowerups] = useState({ fiftyFifty: session.powerups?.fiftyFifty ?? 0, timeExtend: session.powerups?.timeExtend ?? 0 });
+  const [powerups, setPowerups] = useState({ fiftyFifty: session.powerups?.fiftyFifty ?? 0, timeExtend: session.powerups?.timeExtend ?? 0, audience: session.powerups?.audience ?? 0 });
+  const [audience, setAudience] = useState<Record<string, Array<{ optionId: string; percent: number }>>>({});
+  const [saved, setSaved] = useState<Record<string, boolean>>({});
+  const askAudience = async () => {
+    if (!question || powerups.audience <= 0) return;
+    try {
+      const res = await post<{ distribution: Array<{ optionId: string; percent: number }>; remaining: number }>(
+        `/quizzes/attempts/${session.attemptId}/powerups`,
+        { kind: 'audience', questionId: question.id },
+      );
+      setAudience((m) => ({ ...m, [question.id]: res.distribution }));
+      setPowerups((p) => ({ ...p, audience: res.remaining }));
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : t('error'));
+    }
+  };
+  const toggleBookmark = async () => {
+    if (!question) return;
+    const on = !saved[question.id];
+    try {
+      if (on) await post(`/quizzes/bookmarks/${question.id}`, {});
+      else await del(`/quizzes/bookmarks/${question.id}`);
+      setSaved((m) => ({ ...m, [question.id]: on }));
+      toast(on ? `🔖 ${t('bookmarked')}` : '✓');
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : t('error'));
+    }
+  };
   const [eliminated, setEliminated] = useState<Record<string, string[]>>({});
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const answeredRef = useRef(false);
@@ -359,7 +388,7 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
         </div>
         {untimed ? <span className="badge success">🧘 {t('untimed')}</span> : <TimerRing left={timeLeft} total={question.timeLimitSec || 1} />}
       </div>
-      {(powerups.fiftyFifty > 0 || powerups.timeExtend > 0) && !feedback && (
+      {(powerups.fiftyFifty > 0 || powerups.timeExtend > 0 || powerups.audience > 0) && !feedback && (
         <div className="row" style={{ marginBottom: 10 }}>
           {powerups.fiftyFifty > 0 && (
             <button className="powerup" onClick={useFiftyFifty} disabled={submitting || !hasOptions || !!eliminated[question.id]}>
@@ -369,6 +398,11 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
           {!untimed && powerups.timeExtend > 0 && (
             <button className="powerup" onClick={useTimeExtend} disabled={submitting}>
               ⏳ +20s <span className="count">{powerups.timeExtend}</span>
+            </button>
+          )}
+          {powerups.audience > 0 && hasOptions && !audience[question.id] && (
+            <button className="powerup" onClick={askAudience} disabled={submitting}>
+              👥 {t('askAudience')} <span className="count">{powerups.audience}</span>
             </button>
           )}
         </div>
@@ -386,12 +420,29 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
               )}
               {feedback.data && pick(feedback.data.explanation) && <p>{pick(feedback.data.explanation)}</p>}
             </div>
-            <button className="btn" style={{ marginTop: 16 }} onClick={goNext} autoFocus>
-              {index + 1 >= total ? t('finish') : t('next')} ›
-            </button>
+            <div className="row" style={{ marginTop: 16 }}>
+              <button className="btn" onClick={goNext} autoFocus>
+                {index + 1 >= total ? t('finish') : t('next')} ›
+              </button>
+              <button className="btn ghost sm" onClick={toggleBookmark} aria-pressed={!!saved[question.id]}>
+                {saved[question.id] ? `🔖 ${t('bookmarked')}` : `🔖 ${t('bookmark')}`}
+              </button>
+            </div>
           </>
         ) : (
           <>
+            {audience[question.id] && (
+              <div className="audience" aria-label={t('audienceSays')}>
+                <span className="muted">👥 {t('audienceSays')}</span>
+                {audience[question.id].map((d, i) => (
+                  <div key={d.optionId} className="audience-row">
+                    <span className="audience-key">{['▲', '◆', '●', '■'][i % 4]}</span>
+                    <div className="audience-bar"><div style={{ width: `${d.percent}%` }} /></div>
+                    <span className="audience-pct">{d.percent}%</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <QuestionRenderer key={`${question.id}:${eliminated[question.id]?.length ?? 0}`} question={displayQuestion} specs={specs} onSubmit={submitAnswer} disabled={submitting} />
             <div className="divider" />
             <div className="row between">

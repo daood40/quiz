@@ -95,3 +95,15 @@ Base: `/api/v1`. Auth: `Authorization: Bearer <accessToken>`. Errors:
 - Settings (admin+): `GET|PATCH /admin/settings`
 - Categories/achievements (admin+): `POST|PATCH|DELETE /admin/categories*`, `POST /admin/achievements`
 - Audit (admin+): `GET /admin/audit`
+
+
+## Added 2026-09 (competitor parity)
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/quizzes/start` | `mode` also accepts `speed` (10s/question, ×2 speed bonus), `survival` (client ends the run on the first miss), `knowledge` (hard, 60s, no speed bonus), `bookmarks` (replays saved questions); optional `language` prefers that language and tops up from others when thin |
+| POST | `/quizzes/attempts/:id/powerups` | `kind: 'audience'` → `{ distribution: [{ optionId, percent }], sample, remaining }` — real pick distribution from `question_option_stats` blended with a correct-leaning prior; once per round |
+| GET | `/quizzes/bookmarks` | saved questions (id, type, difficulty, prompt) |
+| POST / DELETE | `/quizzes/bookmarks/:questionId` | save / unsave |
+| PUT | `/admin/questions/:id` | now snapshots the previous row into `question_versions`, bumps `version`, and sends an approved question back to `pending_review` |
+| POST | `/admin/questions/:id/status` | `approved` on a religion-category question requires `source`/`sourceUrl`; `archived` with a note matching *wrong/incorrect/refund/خطأ* refunds this month's competitive losers (+ notification) |
