@@ -265,14 +265,15 @@ describe('parity features: audience, bookmarks, versions, refund', () => {
 
   it('editing an approved question snapshots a version and sends it back to review', async () => {
     const qid = await seedQuestion({});
-    const admin = await registerUser('editor1');
-    await makeAdmin(admin.id, 'admin');
-    const current = await api(`/admin/questions/${qid}`, { token: admin.token });
+    const reg = await registerUser('editor1');
+    await makeAdmin(reg.id, 'admin');
+    const adminToken = await loginAs('editor1');
+    const current = await api(`/admin/questions/${qid}`, { token: adminToken });
     expect(current.status).toBe(200);
     const q = (current.body as { question: Record<string, unknown> }).question;
     const res = await api(`/admin/questions/${qid}`, {
       method: 'PUT',
-      token: admin.token,
+      token: adminToken,
       body: {
         type: q.type, categoryId: q.categoryId ?? null, difficulty: q.difficulty, language: q.language,
         content: { ...(q.content as Record<string, unknown>), prompt: { en: 'Edited prompt' } },
@@ -298,9 +299,10 @@ describe('parity features: audience, bookmarks, versions, refund', () => {
     }
     await api(`/quizzes/attempts/${attemptId}/submit`, { method: 'POST', token: u.token });
     const before = Number((await query('SELECT total_points FROM users WHERE id = $1', [u.id])).rows[0].total_points);
-    const admin = await registerUser('mod1');
-    await makeAdmin(admin.id, 'admin');
-    const res = await api(`/admin/questions/${qid}/status`, { method: 'POST', token: admin.token, body: { status: 'archived', note: 'wrong answer key' } });
+    const reg = await registerUser('mod1');
+    await makeAdmin(reg.id, 'admin');
+    const adminToken = await loginAs('mod1');
+    const res = await api(`/admin/questions/${qid}/status`, { method: 'POST', token: adminToken, body: { status: 'archived', note: 'wrong answer key' } });
     expect(res.status).toBe(200);
     const after = Number((await query('SELECT total_points FROM users WHERE id = $1', [u.id])).rows[0].total_points);
     expect(after).toBe(before + 10);
