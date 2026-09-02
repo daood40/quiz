@@ -54,6 +54,7 @@ function SubmitBar({ onSubmit, canSubmit, disabled, children }: { onSubmit: () =
 
 // ---------------------------------------------------------------- families
 const KEYS_EN = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+const SHAPES = ['▲', '◆', '●', '■'];
 const KEYS_AR = ['أ', 'ب', 'ج', 'د', 'هـ', 'و', 'ز', 'ح'];
 
 function SingleChoice({ question, onSubmit, disabled, withConfidence }: Props & { withConfidence?: boolean }) {
@@ -67,11 +68,11 @@ function SingleChoice({ question, onSubmit, disabled, withConfidence }: Props & 
       {options.map((o, i) => (
         <button
           key={str(o.id)}
-          className={`option ${selected === o.id ? 'selected' : ''}`}
+          className={`option k${i % 4} ${selected === o.id ? 'selected' : ''}`}
           onClick={() => !disabled && setSelected(str(o.id))}
           disabled={disabled}
         >
-          <span className="opt-key">{keys[i] ?? i + 1}</span>
+          <span className="opt-key" aria-label={String(keys[i] ?? i + 1)}>{SHAPES[i % 4]}</span>
           {o.media ? <img src={str((o.media as Record<string, unknown>).url)} alt="" style={{ maxHeight: 80, borderRadius: 8 }} /> : null}
           {pick(o.text)}
         </button>
@@ -107,7 +108,7 @@ function MultiChoice({ question, onSubmit, disabled }: Props) {
   return (
     <div className="stack">
       {options.map((o, i) => (
-        <button key={str(o.id)} className={`option ${selected.has(str(o.id)) ? 'selected' : ''}`} onClick={() => !disabled && toggle(str(o.id))} disabled={disabled}>
+        <button key={str(o.id)} className={`option k${i % 4} ${selected.has(str(o.id)) ? 'selected' : ''}`} onClick={() => !disabled && toggle(str(o.id))} disabled={disabled}>
           <span className="opt-key">{selected.has(str(o.id)) ? '✓' : keys[i] ?? i + 1}</span>
           {pick(o.text)}
         </button>

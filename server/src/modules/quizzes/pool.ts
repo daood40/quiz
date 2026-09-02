@@ -23,9 +23,10 @@ export interface PoolQuestion {
 
 /**
  * Question Pool Engine — picks approved questions matching the filter,
- * preferring ones the user hasn't answered in their last 500 answers,
- * randomized, quality-gated. Falls back to already-answered questions
- * when the unanswered pool is too small.
+ * excluding anything the user answered in the last 90 days (repeat
+ * questions are the #1 complaint about the big trivia apps), randomized,
+ * quality-gated. Falls back to already-answered questions only when the
+ * fresh pool is too small.
  */
 export async function pickQuestions(filter: PoolFilter): Promise<PoolQuestion[]> {
   const params: unknown[] = [];
@@ -53,7 +54,7 @@ export async function pickQuestions(filter: PoolFilter): Promise<PoolQuestion[]>
            SELECT aa.question_id FROM attempt_answers aa
            JOIN attempts a ON a.id = aa.attempt_id
            WHERE a.user_id = ${userParam}
-           ORDER BY aa.answered_at DESC LIMIT 500
+             AND aa.answered_at > now() - interval '90 days'
          )
        ORDER BY random() LIMIT ${countParam}`,
       params,

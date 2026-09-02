@@ -5,7 +5,7 @@ import { Spinner, StatBox, fmtMs, useOnline, useToast, useTypeSpecs } from '../c
 import { useAuth } from '../ctx';
 import { useI18n } from '../i18n';
 import { QuestionRenderer, type PlayableQuestion } from '../QuestionRenderer';
-import { sfx } from '../sounds';
+import { haptic, sfx } from '../sounds';
 
 interface StartResponse {
   attemptId: string;
@@ -56,6 +56,17 @@ export function PlayPage() {
   const [session, setSession] = useState<StartResponse | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [spinning, setSpinning] = useState(false);
+  // Trivia-Crack-style category roulette: a short spin, then a random category lands
+  const spinWheel = () => {
+    if (categories.length === 0) return;
+    setSpinning(true);
+    haptic('tap');
+    window.setTimeout(() => {
+      setCategoryId(categories[Math.floor(Math.random() * categories.length)].id);
+      setSpinning(false);
+    }, 1100);
+  };
 
   useEffect(() => {
     void get<{ categories: CategoryOpt[] }>('/categories').then((r) => setCategories(r.categories)).catch(() => undefined);
@@ -106,10 +117,22 @@ export function PlayPage() {
           <>
             <div>
               <label className="fld">{t('category')}</label>
-              <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                <option value="">{t('anyCategory')}</option>
-                {categories.map((c) => <option key={c.id} value={c.id}>{pick(c.name)}</option>)}
-              </select>
+              <div className="row" style={{ flexWrap: 'nowrap' }}>
+                <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                  <option value="">{t('anyCategory')}</option>
+                  {categories.map((c) => <option key={c.id} value={c.id}>{pick(c.name)}</option>)}
+                </select>
+                <button
+                  type="button"
+                  className={`btn secondary wheel-btn ${spinning ? 'spinning' : ''}`}
+                  aria-label={t('spinWheel')}
+                  title={t('spinWheel')}
+                  disabled={spinning || categories.length === 0}
+                  onClick={spinWheel}
+                >
+                  🎡
+                </button>
+              </div>
             </div>
             <div>
               <label className="fld">{t('difficulty')}</label>
@@ -211,8 +234,8 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
         );
         outcomesRef.current.push(res.outcome);
         setScore((s) => s + res.points);
-        if (res.outcome === 'correct' || res.outcome === 'partial') sfx.correct();
-        else if (res.outcome === 'incorrect' || res.outcome === 'timeout') sfx.wrong();
+        if (res.outcome === 'correct' || res.outcome === 'partial') { sfx.correct(); haptic('correct'); }
+        else if (res.outcome === 'incorrect' || res.outcome === 'timeout') { sfx.wrong(); haptic('wrong'); }
         setSubmitting(false);
         if (untimed && answer !== null) {
           // self-paced learning: show the answer + explanation, wait for Next
@@ -472,6 +495,11 @@ export function ResultView({ summary, outcomes = [] }: { summary: Summary; outco
   };
   return (
     <div className="card center" style={{ maxWidth: 560, margin: '0 auto' }}>
+      {summary.isPerfect && (
+        <div className="confetti" aria-hidden="true">
+          {Array.from({ length: 24 }, (_, i) => <span key={i} style={{ '--i': i } as React.CSSProperties} />)}
+        </div>
+      )}
       <div className="result-emoji">{summary.isPerfect ? '🏆' : summary.accuracy >= 60 ? '🎉' : '💪'}</div>
       {summary.isPerfect && <h2>{t('perfect')}</h2>}
       <p className="result-score">{shownScore} <span className="of">/ {summary.maxScore}</span></p>

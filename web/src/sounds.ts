@@ -56,3 +56,11 @@ export const sfx = {
     tone(783.99, 0.2, 0.22, 0.05);
   }),
 };
+
+/** Haptic cue (Android/Chrome); follows the sounds toggle and reduced-motion. */
+export function haptic(kind: 'correct' | 'wrong' | 'tap'): void {
+  if (!soundsEnabled()) return;
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  const pattern = kind === 'correct' ? [18] : kind === 'wrong' ? [40, 40, 40] : [8];
+  try { navigator.vibrate?.(pattern); } catch { /* unsupported */ }
+}

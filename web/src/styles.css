@@ -276,6 +276,52 @@ h3 { font-size: 16px; font-weight: 700; margin: 0 0 8px; }
 }
 .option.selected .opt-key { background: var(--primary); color: var(--on-primary); }
 
+/* Kahoot-style tiles: colour + shape per position (never colour alone) */
+.option .opt-key { font-size: 15px; }
+.option.k0 .opt-key { background: color-mix(in srgb, #c94f4a 18%, var(--surface-2)); color: #b23f3a; }
+.option.k1 .opt-key { background: color-mix(in srgb, #2f6fbf 18%, var(--surface-2)); color: #2a5fa3; }
+.option.k2 .opt-key { background: color-mix(in srgb, #d19a2a 22%, var(--surface-2)); color: #9a6e12; }
+.option.k3 .opt-key { background: color-mix(in srgb, #3e8e5a 20%, var(--surface-2)); color: #2f7446; }
+.option.k0:hover, .option.k0.selected { border-color: #c94f4a; }
+.option.k1:hover, .option.k1.selected { border-color: #2f6fbf; }
+.option.k2:hover, .option.k2.selected { border-color: #d19a2a; }
+.option.k3:hover, .option.k3.selected { border-color: #3e8e5a; }
+.option.k0.selected { background: color-mix(in srgb, #c94f4a 10%, var(--surface)); box-shadow: 0 0 0 3px color-mix(in srgb, #c94f4a 18%, transparent); }
+.option.k1.selected { background: color-mix(in srgb, #2f6fbf 10%, var(--surface)); box-shadow: 0 0 0 3px color-mix(in srgb, #2f6fbf 18%, transparent); }
+.option.k2.selected { background: color-mix(in srgb, #d19a2a 12%, var(--surface)); box-shadow: 0 0 0 3px color-mix(in srgb, #d19a2a 20%, transparent); }
+.option.k3.selected { background: color-mix(in srgb, #3e8e5a 10%, var(--surface)); box-shadow: 0 0 0 3px color-mix(in srgb, #3e8e5a 18%, transparent); }
+.option.k0.selected .opt-key { background: #c94f4a; color: #fff; }
+.option.k1.selected .opt-key { background: #2f6fbf; color: #fff; }
+.option.k2.selected .opt-key { background: #d19a2a; color: #fff; }
+.option.k3.selected .opt-key { background: #3e8e5a; color: #fff; }
+[data-theme='dark'] .option.k0 .opt-key { color: #e99a94; }
+[data-theme='dark'] .option.k1 .opt-key { color: #8db4ea; }
+[data-theme='dark'] .option.k2 .opt-key { color: #e6bd66; }
+[data-theme='dark'] .option.k3 .opt-key { color: #8fd0a6; }
+/* correct/wrong reveal always wins over tile colours */
+.option.correct, .option.correct.selected { border-color: var(--success); background: var(--success-soft); box-shadow: none; }
+.option.wrong, .option.wrong.selected { border-color: var(--danger); background: var(--danger-soft); box-shadow: none; }
+
+/* category roulette */
+.wheel-btn { flex-shrink: 0; width: 46px; padding: 0; font-size: 20px; }
+.wheel-btn.spinning { animation: wheel-spin 1.1s var(--ease); }
+@keyframes wheel-spin { to { transform: rotate(1080deg); } }
+
+/* confetti burst on a perfect round */
+.confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.confetti span {
+  position: absolute; top: -12px; inset-inline-start: calc(4% + (var(--i) * 3.9%));
+  width: 8px; height: 14px; border-radius: 2px;
+  background: hsl(calc(var(--i) * 37deg) 60% 55%);
+  opacity: 0;
+  animation: confetti-fall 1.9s cubic-bezier(0.2, 0.7, 0.3, 1) calc(var(--i) * 45ms) forwards;
+}
+@keyframes confetti-fall {
+  0% { opacity: 1; transform: translateY(0) rotate(0); }
+  100% { opacity: 0; transform: translateY(420px) rotate(calc(var(--i) * 140deg)); }
+}
+@media (prefers-reduced-motion: reduce) { .confetti { display: none; } }
+
 /* ---------- timer ---------- */
 .timer-wrap { position: relative; width: 58px; height: 58px; flex-shrink: 0; }
 .timer-wrap svg { transform: rotate(-90deg); }

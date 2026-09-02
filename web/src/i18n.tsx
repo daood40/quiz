@@ -136,6 +136,7 @@ const dict = {
   didntKnow: { en: "I didn't know", ar: 'لم أعرفها' },
   reveal: { en: 'Reveal answer', ar: 'اكشف الإجابة' },
   across: { en: 'Across', ar: 'أفقي' },
+  spinWheel: { en: 'Spin for a random category', ar: 'دوّر العجلة لتصنيف عشوائي' },
   down: { en: 'Down', ar: 'رأسي' },
   typeAnswer: { en: 'Type your answer…', ar: 'اكتب إجابتك…' },
   dragToOrder: { en: 'Tap items in the correct order', ar: 'اضغط العناصر بالترتيب الصحيح' },
