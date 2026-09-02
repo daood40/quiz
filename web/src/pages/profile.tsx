@@ -5,7 +5,7 @@ import { Avatar, EmptyState, Spinner, StatBox, fmtMs, useToast } from '../compon
 import { useAuth } from '../ctx';
 import { useI18n, type Lang } from '../i18n';
 import { useTheme } from '../ctx';
-import { setSoundsEnabled, soundsEnabled } from '../sounds';
+import { autoAdvanceEnabled, largeTextEnabled, setAutoAdvance, setLargeText, setSoundsEnabled, soundsEnabled } from '../sounds';
 
 export function PublicProfilePage() {
   const { t } = useI18n();
@@ -194,6 +194,8 @@ export function SettingsPage() {
   const [country, setCountry] = useState(user?.country ?? '');
   const [avatar, setAvatar] = useState(user?.avatar ?? '');
   const [sounds, setSounds] = useState(soundsEnabled());
+  const [largeText, setLargeTextState] = useState(largeTextEnabled());
+  const [autoAdv, setAutoAdv] = useState(autoAdvanceEnabled());
   const [pw, setPw] = useState({ current: '', next: '' });
   const [delPw, setDelPw] = useState('');
 
@@ -268,6 +270,24 @@ export function SettingsPage() {
               style={{ width: 16, marginInlineEnd: 6 }}
             />
             🔔 {t('sound')}
+          </label>
+          <label className={`chip ${largeText ? 'selected' : ''}`} style={{ userSelect: 'none' }}>
+            <input
+              type="checkbox"
+              checked={largeText}
+              onChange={(e) => { setLargeTextState(e.target.checked); setLargeText(e.target.checked); }}
+              style={{ width: 16, marginInlineEnd: 6 }}
+            />
+            🔍 {t('largeText')}
+          </label>
+          <label className={`chip ${autoAdv ? 'selected' : ''}`} style={{ userSelect: 'none' }}>
+            <input
+              type="checkbox"
+              checked={autoAdv}
+              onChange={(e) => { setAutoAdv(e.target.checked); setAutoAdvance(e.target.checked); }}
+              style={{ width: 16, marginInlineEnd: 6 }}
+            />
+            ⏭️ {t('autoAdvance')}
           </label>
         </div>
       </div>

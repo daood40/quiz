@@ -68,6 +68,7 @@ interface Attempt {
   maxScore: number;
   submittedAt?: number;
   roundStreak?: number;
+  speedBonus?: number; // multiplier: 0 (knowledge) · 1 · 2 (speed)
 }
 interface DemoState {
   user: DemoUser;
@@ -142,11 +143,17 @@ function present(q: DemoQuestion, timeLimitSec: number) {
   };
 }
 
-function pickPool(opts: { categoryId?: string; difficulty?: string; count: number; ids?: string[] }): DemoQuestion[] {
+function pickPool(opts: { categoryId?: string; difficulty?: string; difficulties?: string[]; language?: string; count: number; ids?: string[] }): DemoQuestion[] {
   if (opts.ids) return opts.ids.map((id) => QBY.get(id)!).filter(Boolean);
   let pool = QUESTIONS;
   if (opts.categoryId) pool = pool.filter((q) => q.categoryId === opts.categoryId);
   if (opts.difficulty) pool = pool.filter((q) => q.difficulty === opts.difficulty);
+  if (opts.difficulties) pool = pool.filter((q) => opts.difficulties!.includes(q.difficulty));
+  // prefer the player's UI language; fall back to the mixed bank when thin
+  if (opts.language) {
+    const same = pool.filter((q) => q.language === opts.language);
+    if (same.length >= opts.count) pool = same;
+  }
   return [...pool].sort(() => Math.random() - 0.5).slice(0, opts.count);
 }
 
@@ -163,18 +170,28 @@ function dailyIds(): string[] {
   return idx.map((i) => QUESTIONS[i].id);
 }
 
-function startAttempt(opts: { mode: string; categoryId?: string; difficulty?: string; count: number; ids?: string[] }) {
+function startAttempt(opts: { mode: string; categoryId?: string; difficulty?: string; language?: string; count: number; ids?: string[] }) {
   const untimed = opts.mode === 'practice' || opts.mode === 'review';
-  const picked = pickPool({ categoryId: opts.categoryId, difficulty: opts.difficulty, count: opts.count, ids: opts.ids });
+  const knowledge = opts.mode === 'knowledge';
+  const picked = pickPool({
+    categoryId: opts.categoryId,
+    difficulty: opts.difficulty,
+    difficulties: knowledge && !opts.difficulty ? ['hard', 'expert', 'medium'] : undefined,
+    language: opts.language,
+    count: opts.count,
+    ids: opts.ids,
+  });
   if (picked.length === 0) throw new DemoError(400, 'bad_request', 'No questions available for the selected filters');
   const perQuestion: Record<string, number> = {};
-  for (const q of picked) perQuestion[q.id] = q.timeLimitSec ?? DEFAULT_TIME;
+  // mode presets: speed = 10s, knowledge = 60s, otherwise the question's own limit
+  for (const q of picked) perQuestion[q.id] = opts.mode === 'speed' ? 10 : knowledge ? 60 : q.timeLimitSec ?? DEFAULT_TIME;
   const attempt: Attempt = {
     id: uid(), mode: opts.mode, status: 'in_progress',
     questionIds: picked.map((q) => q.id), answers: [],
     startedAt: Date.now(), lastEventAt: Date.now(), untimed,
     powerups: { fiftyFifty: 2, timeExtend: untimed ? 0 : 1, used: {} },
     perQuestion,
+    speedBonus: opts.mode === 'speed' ? 2 : knowledge ? 0 : 1,
     score: 0,
     maxScore: picked.reduce((s, q) => (registry.isScored(q.type) ? s + (q.points > 0 ? q.points : POINTS[q.difficulty] ?? 10) : s), 0),
   };
@@ -220,7 +237,7 @@ function answerQuestion(attemptId: string, questionId: string, answer: unknown) 
   if (scored && (outcome === 'correct' || outcome === 'partial')) {
     points = base * ratio;
     if (!a.untimed && outcome === 'correct' && limitMs > 0) {
-      points += base * 0.5 * Math.max(0, 1 - Math.min(elapsed, limitMs) / limitMs);
+      points += (a.speedBonus ?? 1) * base * 0.5 * Math.max(0, 1 - Math.min(elapsed, limitMs) / limitMs);
     }
     // in-round streak bonus, same rule as the server: min(streak, 5) × 2
     if (outcome === 'correct') points += Math.min((a.roundStreak ?? 0) + 1, 5) * 2;
@@ -377,6 +394,7 @@ export async function demoApi(path: string, opts: { method?: string; body?: unkn
       mode,
       categoryId: body.categoryId as string | undefined,
       difficulty: body.difficulty as string | undefined,
+      language: (body.language as string | undefined) ?? state.user.language,
       count: (body.questionCount as number) ?? 10,
     });
   }

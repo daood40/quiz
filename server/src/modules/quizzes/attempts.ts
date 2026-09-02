@@ -116,12 +116,24 @@ export async function startAttempt(userId: string, isGuest: boolean, opts: Start
   } else {
     const picked = await pickQuestions({
       categoryId: opts.categoryId,
-      difficulty: opts.difficulty,
+      difficulty: opts.difficulty ?? (opts.mode === 'knowledge' ? 'hard' : undefined),
       language: opts.language,
       types: opts.types,
       count,
       excludeAnsweredBy: userId,
     });
+    if (picked.length < count && opts.language) {
+      // the requested language is thin for these filters — top up from any language
+      const more = await pickQuestions({
+        categoryId: opts.categoryId,
+        difficulty: opts.difficulty ?? (opts.mode === 'knowledge' ? 'hard' : undefined),
+        types: opts.types,
+        count: count - picked.length,
+        excludeAnsweredBy: userId,
+      });
+      const seen = new Set(picked.map((p) => p.id));
+      for (const m of more) if (!seen.has(m.id)) picked.push(m);
+    }
     questionIds = picked.map((p) => p.id);
   }
   if (questionIds.length === 0) throw badRequest('No questions available for the selected filters');
@@ -134,7 +146,8 @@ export async function startAttempt(userId: string, isGuest: boolean, opts: Start
   let totalSec = 0;
   for (const id of ordered) {
     const q = questions.get(id)!;
-    const limit = q.time_limit_sec ?? settings.defaultQuestionTimeSec;
+    // mode presets: speed = 10s per question, knowledge = 60s
+    const limit = opts.mode === 'speed' ? 10 : opts.mode === 'knowledge' ? 60 : q.time_limit_sec ?? settings.defaultQuestionTimeSec;
     perQuestion[id] = { timeLimitSec: limit };
     totalSec += limit;
   }
@@ -160,7 +173,7 @@ export async function startAttempt(userId: string, isGuest: boolean, opts: Start
       contextType,
       opts.contextId ?? null,
       ordered,
-      JSON.stringify({ perQuestion, lastEventAt: new Date().toISOString(), graceMs, untimed, powerups }),
+      JSON.stringify({ perQuestion, lastEventAt: new Date().toISOString(), graceMs, untimed, powerups, speedBonus: opts.mode === 'speed' ? 2 : opts.mode === 'knowledge' ? 0 : 1 }),
       overallSec + graceMs / 1000,
       ordered.reduce((sum, id) => {
         const q = questions.get(id)!;
@@ -202,6 +215,7 @@ interface AttemptRow {
     graceMs: number;
     untimed?: boolean;
     roundStreak?: number;
+    speedBonus?: number;
     powerups?: {
       fiftyFifty: number;
       timeExtend: number;
@@ -363,8 +377,9 @@ async function answerQuestionTx(
         basePoints: q.points,
         difficulty: q.difficulty,
         result: { outcome, ratio, detail },
-        // untimed modes earn no speed bonus — learning pace is not penalized or gamed
-        timeTakenMs: untimed ? limitMs : Math.min(elapsedMs, limitMs),
+        // untimed + knowledge modes earn no speed bonus; speed mode doubles it
+        timeTakenMs: untimed || meta.speedBonus === 0 ? limitMs : Math.min(elapsedMs, limitMs),
+        speedMultiplier: meta.speedBonus ?? 1,
         timeLimitMs: limitMs,
         scored,
         streakBefore,

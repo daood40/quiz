@@ -110,9 +110,9 @@ export function HomePage() {
           <Spinner />
         ) : (
           <div className="grid cols-3">
-            {categories.filter((c) => !c.parentId).map((c) => (
-              <button key={c.id} className="option" onClick={() => nav(`/play?category=${c.id}`)}>
-                <span style={{ fontSize: 22 }}>{c.icon || '📚'}</span>
+            {categories.filter((c) => !c.parentId).map((c, i) => (
+              <button key={c.id} className="option cat" style={{ '--cat-hue': (i * 47) % 360 } as React.CSSProperties} onClick={() => nav(`/play?category=${c.id}`)}>
+                <span className="cat-ico">{c.icon || '📚'}</span>
                 <span style={{ flex: 1 }}>{pick(c.name)}</span>
                 <span className="badge">{c.questionCount}</span>
               </button>

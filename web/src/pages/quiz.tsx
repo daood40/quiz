@@ -5,11 +5,12 @@ import { Spinner, StatBox, fmtMs, useOnline, useToast, useTypeSpecs } from '../c
 import { useAuth } from '../ctx';
 import { useI18n } from '../i18n';
 import { QuestionRenderer, type PlayableQuestion } from '../QuestionRenderer';
-import { haptic, sfx } from '../sounds';
+import { autoAdvanceEnabled, haptic, sfx } from '../sounds';
 
 interface StartResponse {
   attemptId: string;
   deadlineAt: string;
+  mode?: string;
   untimed?: boolean;
   powerups?: { fiftyFifty: number; timeExtend: number };
   questions: PlayableQuestion[];
@@ -42,11 +43,14 @@ interface CategoryOpt { id: string; name: unknown }
 const MODES = [
   { id: 'practice', icon: '🧘', untimed: true },
   { id: 'timed', icon: '⚡', untimed: false },
+  { id: 'speed', icon: '🚀', untimed: false },
+  { id: 'survival', icon: '💀', untimed: false },
+  { id: 'knowledge', icon: '🎓', untimed: false },
   { id: 'review', icon: '🔁', untimed: true },
 ] as const;
 
 export function PlayPage() {
-  const { t, pick } = useI18n();
+  const { t, pick, lang } = useI18n();
   const [params] = useSearchParams();
   const [categories, setCategories] = useState<CategoryOpt[]>([]);
   const [categoryId, setCategoryId] = useState(params.get('category') ?? '');
@@ -78,6 +82,7 @@ export function PlayPage() {
     try {
       const res = await post<StartResponse>('/quizzes/start', {
         mode,
+        language: lang,
         categoryId: mode === 'review' || mode === 'daily' ? undefined : categoryId || undefined,
         difficulty: mode === 'review' || mode === 'daily' ? undefined : difficulty || undefined,
         questionCount: count,
@@ -96,6 +101,9 @@ export function PlayPage() {
     practice: { name: t('modePractice'), desc: t('modePracticeDesc') },
     timed: { name: t('modeTimed'), desc: t('modeTimedDesc') },
     review: { name: t('modeReview'), desc: t('modeReviewDesc') },
+    speed: { name: t('modeSpeed'), desc: t('modeSpeedDesc') },
+    survival: { name: t('modeSurvival'), desc: t('modeSurvivalDesc') },
+    knowledge: { name: t('modeKnowledge'), desc: t('modeKnowledgeDesc') },
   };
 
   return (
@@ -211,6 +219,7 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
     }
   }, [session.attemptId, nav, refreshUser, toast, t]);
 
+  const goNextRef = useRef<() => void>(() => undefined);
   const goNext = useCallback(() => {
     setFeedback(null);
     if (index + 1 >= total) {
@@ -221,6 +230,7 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
       setTimeLeft(session.questions[index + 1].timeLimitSec);
     }
   }, [index, total, finish, session.questions]);
+  goNextRef.current = goNext;
 
   const submitAnswer = useCallback(
     async (answer: unknown) => {
@@ -240,6 +250,13 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
         if (untimed && answer !== null) {
           // self-paced learning: show the answer + explanation, wait for Next
           setFeedback({ outcome: res.outcome, data: res.feedback ?? null });
+          if (autoAdvanceEnabled()) window.setTimeout(() => goNextRef.current(), 2600);
+          return;
+        }
+        // survival: the first miss ends the run (Trivia Royale / QuizUp style)
+        if (session.mode === 'survival' && (res.outcome === 'incorrect' || res.outcome === 'timeout')) {
+          toast(`💀 ${t('survivalOver')}`);
+          void finish();
           return;
         }
         if (!untimed) {
@@ -261,7 +278,7 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
       }
       goNext();
     },
-    [question, session.attemptId, goNext, toast, t, untimed],
+    [question, session.attemptId, session.mode, goNext, finish, toast, t, untimed],
   );
 
   // countdown (timed modes only; the server stays authoritative)
@@ -493,6 +510,40 @@ export function ResultView({ summary, outcomes = [] }: { summary: Summary; outco
       /* cancelled */
     }
   };
+  const shareImage = async () => {
+    // 1080×1080 result card (Wordle/Duolingo-style share card)
+    const c = document.createElement('canvas');
+    c.width = 1080; c.height = 1080;
+    const g = c.getContext('2d');
+    if (!g) return;
+    const grad = g.createLinearGradient(0, 0, 1080, 1080);
+    grad.addColorStop(0, '#177d6e'); grad.addColorStop(1, '#4f945c');
+    g.fillStyle = grad; g.fillRect(0, 0, 1080, 1080);
+    g.fillStyle = 'rgba(255,255,255,0.12)';
+    g.beginPath(); g.arc(900, 140, 260, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#fff'; g.textAlign = 'center';
+    g.font = '700 54px Rubik, Segoe UI, sans-serif';
+    g.fillText('🧠 Quiz Platform', 540, 150);
+    g.font = '900 220px Rubik, Segoe UI, sans-serif';
+    g.fillText(String(shownScore), 540, 520);
+    g.font = '600 56px Rubik, Segoe UI, sans-serif';
+    g.fillText(`/ ${summary.maxScore}`, 540, 600);
+    g.font = '700 64px Rubik, Segoe UI, sans-serif';
+    g.fillText(`${t('accuracy')} ${summary.accuracy}%`, 540, 740);
+    g.font = '60px sans-serif';
+    g.fillText(outcomes.map((o: OutcomeMark) => (o === 'correct' ? '🟩' : o === 'partial' ? '🟨' : '⬜')).join(''), 540, 860);
+    g.font = '500 40px Rubik, Segoe UI, sans-serif';
+    g.fillText('daood40.github.io/quiz', 540, 990);
+    const blob: Blob | null = await new Promise((r) => c.toBlob(r, 'image/png'));
+    if (!blob) return;
+    const file = new File([blob], 'quiz-result.png', { type: 'image/png' });
+    try {
+      if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file] }); return; }
+    } catch { /* cancelled */ }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'quiz-result.png'; a.click();
+    URL.revokeObjectURL(a.href);
+  };
   return (
     <div className="card center" style={{ maxWidth: 560, margin: '0 auto' }}>
       {summary.isPerfect && (
@@ -528,6 +579,7 @@ export function ResultView({ summary, outcomes = [] }: { summary: Summary; outco
         <button className="btn" onClick={() => nav(`/review/${summary.attemptId}`)}>{t('reviewAnswers')}</button>
         <button className="btn secondary" onClick={() => nav('/play')}>{t('tryAgain')}</button>
         <button className="btn ghost" onClick={share}>{t('share')}</button>
+        <button className="btn ghost" onClick={shareImage}>🖼️ {t('shareImage')}</button>
       </div>
     </div>
   );

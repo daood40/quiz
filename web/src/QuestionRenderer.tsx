@@ -3,7 +3,7 @@
  * question-type registry (useTypeSpecs), so new server types render without
  * client changes as long as they map to a known family.
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useI18n } from './i18n';
 import type { TypeSpec } from './components';
 
@@ -63,6 +63,17 @@ function SingleChoice({ question, onSubmit, disabled, withConfidence }: Props & 
   const [confidence, setConfidence] = useState(3);
   const options = arr(question.content.options);
   const keys = lang === 'ar' ? KEYS_AR : KEYS_EN;
+  // desktop: 1-9 pick an option, Enter submits (Sporcle/Kahoot keyboard parity)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (disabled || (e.target as HTMLElement)?.tagName === 'INPUT') return;
+      const n = Number(e.key);
+      if (n >= 1 && n <= options.length) setSelected(str(options[n - 1].id));
+      else if (e.key === 'Enter' && selected) onSubmit(withConfidence ? { optionId: selected, confidence } : selected);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [disabled, options, selected, confidence, withConfidence, onSubmit]);
   return (
     <div className="stack">
       {options.map((o, i) => (

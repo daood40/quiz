@@ -64,3 +64,22 @@ export function haptic(kind: 'correct' | 'wrong' | 'tap'): void {
   const pattern = kind === 'correct' ? [18] : kind === 'wrong' ? [40, 40, 40] : [8];
   try { navigator.vibrate?.(pattern); } catch { /* unsupported */ }
 }
+
+/** Practice-mode auto-advance after feedback (Wayground/Quizizz style). */
+export function autoAdvanceEnabled(): boolean {
+  try { return localStorage.getItem('autoadvance') === 'on'; } catch { return false; }
+}
+export function setAutoAdvance(on: boolean): void {
+  try { localStorage.setItem('autoadvance', on ? 'on' : 'off'); } catch { /* ignore */ }
+}
+/** Large-text accessibility mode (root font scaling). */
+export function largeTextEnabled(): boolean {
+  try { return localStorage.getItem('textsize') === 'large'; } catch { return false; }
+}
+export function setLargeText(on: boolean): void {
+  try { localStorage.setItem('textsize', on ? 'large' : 'normal'); } catch { /* ignore */ }
+  applyLargeText(on);
+}
+export function applyLargeText(on = largeTextEnabled()): void {
+  document.documentElement.dataset.textsize = on ? 'large' : 'normal';
+}

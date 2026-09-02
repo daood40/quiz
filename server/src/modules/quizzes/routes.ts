@@ -10,7 +10,7 @@ import { ensureDailyQuiz } from './daily.js';
 
 const startSchema = z.object({
   mode: z
-    .enum(['practice', 'timed', 'daily', 'challenge', 'competitive', 'random', 'category', 'difficulty', 'review'])
+    .enum(['practice', 'timed', 'speed', 'survival', 'knowledge', 'daily', 'challenge', 'competitive', 'random', 'category', 'difficulty', 'review'])
     .default('practice'),
   categoryId: z.string().uuid().nullish(),
   difficulty: z.enum(['easy', 'medium', 'hard', 'expert']).nullish(),

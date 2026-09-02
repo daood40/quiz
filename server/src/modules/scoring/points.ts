@@ -9,6 +9,7 @@ export interface PointsInput {
   timeLimitMs: number;
   scored: boolean;             // registry spec.scored
   streakBefore?: number;       // consecutive correct answers earlier in this round
+  speedMultiplier?: number;    // 0 = no speed bonus, 2 = speed mode
   statsAttempts?: number;      // lifetime recorded answers for this question
 }
 
@@ -48,7 +49,7 @@ export function computePoints(input: PointsInput, settings: AppSettings): Points
   let speedBonus = 0;
   if (settings.speedBonusEnabled && outcome === 'correct' && input.timeLimitMs > 0) {
     const remaining = Math.max(0, 1 - input.timeTakenMs / input.timeLimitMs);
-    speedBonus = Math.round(base * (settings.speedBonusMaxPercent / 100) * remaining);
+    speedBonus = Math.round((input.speedMultiplier ?? 1) * base * (settings.speedBonusMaxPercent / 100) * remaining);
     points += speedBonus;
   }
   let streakBonus = 0;
