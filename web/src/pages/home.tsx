@@ -136,7 +136,7 @@ export function HomePage() {
         ) : recent.length === 0 ? (
           <EmptyState />
         ) : (
-          <table className="tbl">
+          <div className="tbl-wrap"><table className="tbl">
             <thead><tr><th>{t('mode')}</th><th>{t('score')}</th><th>{t('correct')}</th><th>{t('totalTime')}</th><th /></tr></thead>
             <tbody>
               {recent.map((a) => (
@@ -149,7 +149,7 @@ export function HomePage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

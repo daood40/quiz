@@ -9,13 +9,22 @@
 | **Fly.io** | `fly launch --no-deploy` → `fly postgres create && fly postgres attach` → `fly secrets set JWT_SECRET=$(openssl rand -hex 64) CORS_ORIGIN=https://<app>.fly.dev` → `fly deploy` (uses `fly.toml` + `Dockerfile`) |
 | **Railway** | New project → Deploy from GitHub (Dockerfile auto-detected) → add PostgreSQL plugin → set `JWT_SECRET`, `CORS_ORIGIN`; `DATABASE_URL` is injected |
 
-After first boot run the seed once (`docker compose exec api node server/dist/db/seed.js`
-or the platform's shell) with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` set,
-then log in and change the admin password. Health check: `GET /health`.
+| **Prebuilt image** | `docker run -p 3001:3001 -e DATABASE_URL=postgres://… -e JWT_SECRET=$(openssl rand -hex 64) -e SEED_ON_BOOT=true ghcr.io/daood40/quiz:latest` — published by `.github/workflows/docker.yml` on every push (`latest`) and tag (`vX.Y.Z`), smoke-run against PostgreSQL in CI |
 
-Point the GitHub Pages demo at the live API by setting `VITE_API_BASE`
-(e.g. `https://<api-host>/api/v1`) and dropping `VITE_DEMO` in
-`.github/workflows/pages.yml` — or serve the SPA from the API itself (default).
+**First boot is automatic.** With `SEED_ON_BOOT=true` (already set in the
+compose file, Render blueprint and Fly config) the API runs migrations, then
+creates the super admin (`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`; a random
+password is printed to the log if unset), the core categories and
+achievements, and the 154-question starter bank (EN + AR). Everything is
+idempotent, so the flag can stay on. Set `SEED_QUESTIONS=false` to skip the
+starter bank when importing your own. Log in and change the admin password.
+Health check: `GET /health`.
+
+**Point the GitHub Pages site at the live API** by adding one repository
+variable (Settings → Secrets and variables → Actions → Variables):
+`VITE_API_BASE = https://<api-host>/api/v1`. The next Pages deploy builds the
+full app instead of the demo. Add `https://daood40.github.io` to the API's
+`CORS_ORIGIN`. Or simply use the SPA the API serves itself (default).
 
 ## Single-server (simplest production)
 
@@ -50,11 +59,11 @@ CMD ["node", "server/dist/index.js"]
 ```
 
 ## First boot
-1. `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` set → `npm run seed` creates
-   the super admin + core categories/achievements (production skips sample
-   questions unless `SEED_DEV=true`).
+1. `SEED_ON_BOOT=true` (or `npm run seed` once) with `SEED_ADMIN_EMAIL` /
+   `SEED_ADMIN_PASSWORD` set → super admin + core categories/achievements +
+   the starter question bank (`SEED_QUESTIONS=false` to skip it).
 2. Log in as the admin, change the password, review Settings, import your
-   question bank (Admin → Import), approve questions.
+   own question bank (Admin → Import), approve questions.
 
 ## Scaling out
 - **Multiple API instances:** stateless by design (JWT + DB). First swap the

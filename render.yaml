@@ -11,6 +11,12 @@ services:
         value: production
       - key: JOBS_ENABLED
         value: "true"
+      - key: SEED_ON_BOOT
+        value: "true"
+      - key: SEED_ADMIN_EMAIL
+        sync: false
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: DATABASE_URL

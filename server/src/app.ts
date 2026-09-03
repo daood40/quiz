@@ -38,7 +38,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   app.addHook('onRequest', attachIdentity);
-  app.addHook('onRequest', rateLimit({ keyPrefix: 'global' }));
+  // global API limiter; static assets / SPA shell are exempt (a page load is several requests)
+  const globalLimiter = rateLimit({ keyPrefix: 'global' });
+  app.addHook('onRequest', async (req, reply) => {
+    if (req.raw.url?.startsWith('/api/')) await globalLimiter(req, reply);
+  });
 
   app.addHook('onSend', async (_req, reply) => {
     reply.header('x-content-type-options', 'nosniff');

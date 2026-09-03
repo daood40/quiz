@@ -61,3 +61,55 @@ jobs:
         run: npx --workspace=web playwright install --with-deps chromium
       - name: Smoke E2E (mobile AR + desktop EN)
         run: npm run e2e --workspace=web
+
+  fullstack:
+    # real API + PostgreSQL + built SPA, driven by Playwright (register → ranked round → leaderboard → admin)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: quiz
+          POSTGRES_PASSWORD: quiz_ci_password
+          POSTGRES_DB: quiz_platform
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U quiz"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Enable PostgreSQL extensions
+        run: |
+          PGPASSWORD=quiz_ci_password psql -h localhost -U quiz -d quiz_platform \
+            -c 'CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pg_trgm;'
+      - name: Build (server + web)
+        run: npm run build
+      - name: Start the production server (migrations + boot seed)
+        run: |
+          nohup node server/dist/index.js > server.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:3001/health && break; sleep 2; done
+          curl -sf http://127.0.0.1:3001/health
+        env:
+          NODE_ENV: production
+          PORT: 3001
+          DATABASE_URL: postgres://quiz:quiz_ci_password@localhost:5432/quiz_platform
+          JWT_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
+          CORS_ORIGIN: http://127.0.0.1:3001
+          SEED_ON_BOOT: 'true'
+          SEED_ADMIN_PASSWORD: ChangeMe123!
+      - name: Install Chromium
+        run: npx --workspace=web playwright install --with-deps chromium
+      - name: Full-stack E2E
+        run: npm run e2e:full --workspace=web
+        env:
+          BASE_URL: http://127.0.0.1:3001
+      - name: Server log
+        if: always()
+        run: tail -50 server.log

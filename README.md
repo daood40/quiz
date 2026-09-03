@@ -80,8 +80,14 @@ npm run dev               # API على :3001 والواجهة على :5173
 
 بأمر واحد على أي خادم: `docker compose up -d --build` (ملفات `Dockerfile` و
 `docker-compose.yml` جاهزة)، أو بضغطة زر على **Render** (`render.yaml`)،
-أو **Fly.io** (`fly.toml`)، أو **Railway**. الخطوات كاملة في
+أو **Fly.io** (`fly.toml`)، أو **Railway**، أو الصورة الجاهزة
+`ghcr.io/daood40/quiz:latest`. أول تشغيل تلقائي بالكامل (`SEED_ON_BOOT=true`):
+ترحيلات + مدير + تصنيفات + بنك 154 سؤالًا. الخطوات كاملة في
 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+لتحويل موقع Pages من Demo إلى التطبيق الكامل: أضف متغير المستودع
+`VITE_API_BASE = https://<api-host>/api/v1` في إعدادات Actions، وسيُبنى
+تلقائيًا مع النشر التالي.
 
 ## النشر التلقائي
 
@@ -90,6 +96,10 @@ npm run dev               # API على :3001 والواجهة على :5173
   `daood40.github.io/quiz/`) ثم ينشرها على GitHub Pages تلقائيًا.
 - **‎.github/workflows/ci.yml** — مع كل push يشغّل فحص الأنواع والاختبارات
   (91 اختبارًا على PostgreSQL حقيقية) والبناء الكامل ودخان E2E بـ Playwright.
+- **‎.github/workflows/docker.yml** — يبني صورة الإنتاج وينشرها على GHCR
+  (`latest` مع كل push، و`vX.Y.Z` مع كل وسم) بعد تشغيلها فعليًا مع PostgreSQL.
+- **‎.github/workflows/release.yml** — أي وسم `v*` ينشئ إصدار GitHub بملاحظات
+  من `CHANGELOG.md`.
 
 ## بنية المستودع
 

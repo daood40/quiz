@@ -28,10 +28,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Build static demo (in-browser engine + bundled question bank)
+      # Two modes, chosen by one repository variable (Settings → Secrets and variables → Actions → Variables):
+      #   VITE_API_BASE unset  → static demo (in-browser engine + bundled bank)
+      #   VITE_API_BASE set    → full app on Pages talking to your hosted API, e.g. https://quiz-api.onrender.com/api/v1
+      - name: Build web (demo, or full app when VITE_API_BASE is set)
         run: npm run build --workspace=web
         env:
-          VITE_DEMO: '1'
+          VITE_DEMO: ${{ vars.VITE_API_BASE == '' && '1' || '' }}
+          VITE_API_BASE: ${{ vars.VITE_API_BASE }}
           VITE_BASE: /${{ github.event.repository.name }}/
       - name: SPA fallback for deep links
         run: cp web/dist/index.html web/dist/404.html

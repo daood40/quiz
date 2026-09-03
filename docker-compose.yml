@@ -1,6 +1,6 @@
 # Local/self-hosted production stack: API + SPA + PostgreSQL 16.
 #   docker compose up -d --build
-#   docker compose exec api node server/dist/db/seed.js   # first boot (admin + categories)
+#   first boot seeds admin + categories + starter bank automatically (SEED_ON_BOOT)
 services:
   db:
     image: postgres:16
@@ -27,6 +27,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (openssl rand -hex 64)}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
       JOBS_ENABLED: "true"
+      SEED_ON_BOOT: "true"
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@quiz.local}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-ChangeMe123!}
     ports:

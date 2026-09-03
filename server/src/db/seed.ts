@@ -324,9 +324,11 @@ export async function seed(): Promise<void> {
     if (!process.env.SEED_ADMIN_PASSWORD) console.log('(set SEED_ADMIN_PASSWORD to control this; change it after first login)');
   }
 
-  // ---------- DEV ----------
-  if (env.isProd && process.env.SEED_DEV !== 'true') {
-    console.log('Production: skipping dev sample data');
+  // ---------- starter question bank ----------
+  // Real launch content (EN sample bank + Arabic bank). Idempotent via content_hash.
+  // Opt out with SEED_QUESTIONS=false (e.g. when importing your own bank).
+  if (process.env.SEED_QUESTIONS === 'false') {
+    console.log('SEED_QUESTIONS=false: skipping starter question bank');
     return;
   }
   const cats = await query('SELECT id, slug FROM categories');

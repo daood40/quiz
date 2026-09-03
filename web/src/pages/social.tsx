@@ -51,7 +51,7 @@ export function LeaderboardPage() {
               })}
             </div>
           )}
-          <table className="tbl">
+          <div className="tbl-wrap"><table className="tbl">
             <thead><tr><th>#</th><th>{t('username')}</th><th>{t('level')}</th><th>{t('points')}</th><th>{t('totalTime')}</th></tr></thead>
             <tbody>
               {data.entries.map((e) => (
@@ -64,7 +64,7 @@ export function LeaderboardPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           </>
         )}
         {data?.me && !data.entries.some((e) => e.userId === user?.id) && (
@@ -153,7 +153,7 @@ export function ChallengesPage() {
       )}
       <div className="card">
         {!list ? <Spinner /> : list.length === 0 ? <EmptyState /> : (
-          <table className="tbl">
+          <div className="tbl-wrap"><table className="tbl">
             <thead><tr><th>{t('name')}</th><th>{t('code')}</th><th>{t('status')}</th><th /></tr></thead>
             <tbody>
               {list.map((c) => (
@@ -165,7 +165,7 @@ export function ChallengesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>
@@ -219,7 +219,7 @@ export function ChallengeDetailPage() {
       </div>
       <div className="card">
         <h2>{t('participants')}</h2>
-        <table className="tbl">
+        <div className="tbl-wrap"><table className="tbl">
           <thead><tr><th>#</th><th>{t('username')}</th><th>{t('status')}</th><th>{t('score')}</th><th>{t('totalTime')}</th></tr></thead>
           <tbody>
             {data.participants.map((p, i) => (
@@ -232,7 +232,7 @@ export function ChallengeDetailPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   );
@@ -281,7 +281,7 @@ export function MonthlyPage() {
       <div className="card">
         <h2>{t('leaderboard')}</h2>
         {data.leaderboard.length === 0 ? <EmptyState /> : (
-          <table className="tbl">
+          <div className="tbl-wrap"><table className="tbl">
             <thead><tr><th>#</th><th>{t('username')}</th><th>{t('points')}</th><th>{t('totalTime')}</th></tr></thead>
             <tbody>
               {data.leaderboard.map((e) => (
@@ -291,7 +291,7 @@ export function MonthlyPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>
@@ -427,7 +427,7 @@ export function GroupDetailPage() {
       </div>
       <div className="card">
         <h2>{t('leaderboard')}</h2>
-        <table className="tbl">
+        <div className="tbl-wrap"><table className="tbl">
           <thead><tr><th>#</th><th>{t('username')}</th><th>{t('level')}</th><th>{t('points')}</th></tr></thead>
           <tbody>
             {data.members.map((m) => (
@@ -437,7 +437,7 @@ export function GroupDetailPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   );

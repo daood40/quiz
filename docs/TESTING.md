@@ -58,3 +58,11 @@ running server: register → play a quiz → result screen → review →
 leaderboard → switch to Arabic (RTL) — asserting zero page errors. Script
 pattern lives in the session scratchpad; wire it into CI by launching the
 server with a test DB and running the same steps.
+
+## End-to-end (Playwright)
+
+- `npm run e2e --workspace=web` — smoke test of the static demo build served under `/quiz/` (mobile AR + desktop EN).
+- `npm run e2e:full --workspace=web` — full stack: real API + PostgreSQL + built SPA. Start the server with
+  `SEED_ON_BOOT=true SEED_ADMIN_PASSWORD='ChangeMe123!'`, then run with `BASE_URL=http://127.0.0.1:3001`.
+  Covers register → ranked round → leaderboard → admin panel, and horizontal overflow at 390px.
+  Both run in CI (`e2e` and `fullstack` jobs). Locally you may set `PLAYWRIGHT_CHROMIUM_PATH` to a system Chromium.

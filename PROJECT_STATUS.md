@@ -1,6 +1,6 @@
 # PROJECT_STATUS — حالة المشروع
 
-**آخر تحديث:** 2026-09-02 · **المرجع الملزم:** [docs/QUIZ_MASTER_DIRECTIVE_v2.md](docs/QUIZ_MASTER_DIRECTIVE_v2.md)
+**آخر تحديث:** 2026-09-03 · **المرجع الملزم:** [docs/QUIZ_MASTER_DIRECTIVE_v2.md](docs/QUIZ_MASTER_DIRECTIVE_v2.md)
 
 ## الحالة الآن
 
@@ -8,11 +8,23 @@
 |---|---|
 | الكود | منصة كاملة مستوردة من `daood40/falah` (فرع quiz-platform-build): خادم Fastify + PostgreSQL، واجهة React، 80 نوع سؤال على 13 عائلة، تحكيم خادمي كامل |
 | CI | ✅ أخضر: typecheck + 91 اختبارًا (تكامل على PostgreSQL حقيقية) + بناء + `npm audit --audit-level=high` + دخان E2E (Playwright، جوال عربي + سطح مكتب إنجليزي) |
-| النشر | ✅ حي: Pages مفعّل والنشر يعمل — `https://daood40.github.io/quiz/` يتحدث تلقائيًا مع كل push. النسخة الكاملة: `Dockerfile` + `docker-compose.yml` + `render.yaml` + `fly.toml` جاهزة (تبقى استضافة الخادم قرار المالك) |
+| النشر | ✅ حي: Pages مفعّل والنشر يعمل — `https://daood40.github.io/quiz/` يتحدث تلقائيًا مع كل push. النسخة الكاملة: صورة `ghcr.io/daood40/quiz` تُبنى وتُختبر في CI + `docker-compose.yml` + `render.yaml` + `fly.toml`، وأول تشغيل تلقائي (`SEED_ON_BOOT`). الإصدار **v1.0.0** موسوم. يبقى فقط اختيار الاستضافة وربط Pages بمتغير `VITE_API_BASE` |
 | الحوكمة | التوجيه v2 معتمد في `docs/`؛ القرارات السبعة في [docs/adr/](docs/adr/)؛ تحليل الفجوات في [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md) |
 | أولوية التوجيه رقم 1 (نقل الحكم للخادم) | ✅ محققة أصلًا — لا منطق تصحيح/وقت/نقاط في عميل النسخة الكاملة (ADR-001)؛ الـ Demo استثناء معتمد (ADR-006) |
 
 ## سجل الجلسات
+
+### 2026-09-03 — الإطلاق v1.0.0
+- بروفة إطلاق كاملة محليًا على PostgreSQL 16 حقيقية: بناء إنتاجي، تشغيل
+  `node server/dist/index.js` (ترحيلات + بذر تلقائي)، تسجيل مستخدم، جولة كاملة،
+  لوحة الصدارة، الإحصاءات، دخول المدير — كلها في متصفح حقيقي بلا أخطاء.
+- `SEED_ON_BOOT=true`: أول تشغيل تلقائي (مدير + تصنيفات + بنك 154 سؤالًا) في
+  compose/Render/Fly؛ البنك الابتدائي يُبذر في الإنتاج (تعطيل بـ `SEED_QUESTIONS=false`).
+- `docker.yml`: صورة GHCR مع كل push/وسم + تشغيل دخاني للصورة مع PostgreSQL في CI.
+- `pages.yml`: متغير `VITE_API_BASE` يحوّل Pages من Demo إلى التطبيق الكامل.
+- `release.yml` + `CHANGELOG.md` + وسم `v1.0.0`.
+- إصلاح واجهة: الجداول تتمرر أفقيًا داخل بطاقتها بدل توسيع الصفحة على الجوال
+  (`.tbl-wrap`) — تجاوز أفقي 0 على كل الصفحات بعرض 360/375/390.
 
 ### 2026-09-02 (ثالثًا) — جاهزية الإنتاج 100%
 - نشر النسخة الكاملة بأمر واحد: `Dockerfile` متعدد المراحل (HEALTHCHECK، مستخدم
@@ -85,7 +97,7 @@
 2. ~~`user_question_history` بمنع 90 يومًا + Grace~~ ✅ (`pool.ts` 90 يومًا، grace في الإعدادات).
 3. ~~قاعدة مصدر تصنيف الدين (§10) + `question_versions` وإرجاع النقاط (§13)~~ ✅ أُنجزت.
 4. إعدادات الخصوصية وFollow (§20).
-5. استضافة الخادم (قرار المالك: Docker/Render/Fly/Railway) ثم توجيه Pages إلى `VITE_API_URL`.
+5. استضافة الخادم (قرار المالك: Docker/Render/Fly/Railway/صورة GHCR) ثم متغير `VITE_API_BASE` في المستودع.
 6. البقية بحسب [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md) ومراحل §41.
 
 > قاعدة التحديث (الملحق ز): كل جلسة عمل تُنهى بتحديث هذا الملف — ما أُنجز،

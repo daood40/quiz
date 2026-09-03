@@ -2,10 +2,13 @@ import { buildApp } from './app.js';
 import { env } from './config/env.js';
 import { closePool } from './db/pool.js';
 import { migrate } from './db/migrate.js';
+import { seed } from './db/seed.js';
 import { startJobs, stopJobs } from './jobs/scheduler.js';
 
 async function main(): Promise<void> {
   await migrate();
+  // one-click hosting: SEED_ON_BOOT=true creates the admin + categories + starter bank (idempotent)
+  if (process.env.SEED_ON_BOOT === 'true') await seed();
   const app = await buildApp();
   if (env.jobsEnabled) startJobs();
 

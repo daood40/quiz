@@ -116,14 +116,14 @@ export function StatsPage() {
       {s.categories.length > 0 && (
         <div className="card">
           <h2>{t('categories')}</h2>
-          <table className="tbl">
+          <div className="tbl-wrap"><table className="tbl">
             <thead><tr><th>{t('category')}</th><th>{t('answered')}</th><th>{t('correct')}</th><th>{t('accuracy')}</th></tr></thead>
             <tbody>
               {s.categories.map((c) => (
                 <tr key={c.id}><td>{pick(c.name)}</td><td>{c.answered}</td><td>{c.correct}</td><td><strong>{c.accuracy}%</strong></td></tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
     </div>

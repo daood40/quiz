@@ -99,7 +99,7 @@ function Questions() {
       </div>
       <div className="card">
         {!data ? <Spinner /> : data.questions.length === 0 ? <EmptyState /> : (
-          <table className="tbl">
+          <div className="tbl-wrap"><table className="tbl">
             <thead><tr><th /><th>Prompt</th><th>Type</th><th>Diff</th><th>Lang</th><th>Q</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>
               {data.questions.map((q) => (
@@ -121,7 +121,7 @@ function Questions() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
         {data && data.total > limit && (
           <div className="row" style={{ marginTop: 10 }}>
@@ -182,10 +182,10 @@ function ImportExport() {
           <div style={{ marginTop: 10 }}>
             <p><span className="badge success">Imported: {result.imported}</span> <span className="badge">Duplicates: {result.duplicates ?? 0}</span> <span className="badge danger">Errors: {result.totalErrors}</span></p>
             {result.errors.length > 0 && (
-              <table className="tbl">
+              <div className="tbl-wrap"><table className="tbl">
                 <thead><tr><th>Row</th><th>Field</th><th>Error</th></tr></thead>
                 <tbody>{result.errors.slice(0, 30).map((e, i) => <tr key={i}><td>{e.row}</td><td>{e.field}</td><td>{e.error}</td></tr>)}</tbody>
-              </table>
+              </table></div>
             )}
           </div>
         )}
@@ -247,7 +247,7 @@ function Users() {
     <div className="card">
       <input placeholder="Search users…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 260, marginBottom: 10 }} />
       {!data ? <Spinner /> : (
-        <table className="tbl">
+        <div className="tbl-wrap"><table className="tbl">
           <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Lvl</th><th>Points</th><th>Attempts</th><th>Actions</th></tr></thead>
           <tbody>
             {data.users.map((u) => (
@@ -276,7 +276,7 @@ function Users() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       )}
     </div>
   );
@@ -342,7 +342,7 @@ function Suspicious() {
   return (
     <div className="card">
       {data.attempts.length === 0 ? <EmptyState label="No flagged attempts" /> : (
-        <table className="tbl">
+        <div className="tbl-wrap"><table className="tbl">
           <thead><tr><th>User</th><th>Mode</th><th>Score</th><th>Flags</th><th>Suspicion</th><th>Actions</th></tr></thead>
           <tbody>
             {data.attempts.map((a) => (
@@ -359,7 +359,7 @@ function Suspicious() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       )}
     </div>
   );

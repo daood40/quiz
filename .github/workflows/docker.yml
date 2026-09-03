@@ -1,0 +1,62 @@
+name: Docker image
+
+# Builds the production image (API + SPA) and publishes it to GHCR:
+#   ghcr.io/<owner>/quiz:latest   on every push to the default branch
+#   ghcr.io/<owner>/quiz:vX.Y.Z   on version tags
+# Run anywhere: docker run -p 3001:3001 -e DATABASE_URL=... -e JWT_SECRET=... -e SEED_ON_BOOT=true ghcr.io/<owner>/quiz
+on:
+  push:
+    branches: [main, claude/quiz-platform-setup-fsywh2]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Login to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=sha
+      - name: Build (and push when not a PR)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke-run the image against PostgreSQL
+        run: |
+          docker network create quiz-net
+          docker run -d --name db --network quiz-net -e POSTGRES_USER=quiz -e POSTGRES_PASSWORD=quiz -e POSTGRES_DB=quiz_platform postgres:16
+          for i in $(seq 1 30); do docker exec db pg_isready -U quiz && break; sleep 2; done
+          docker exec db psql -U quiz -d quiz_platform -c 'CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pg_trgm;'
+          IMG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          docker run -d --name api --network quiz-net -p 3001:3001 \
+            -e DATABASE_URL=postgres://quiz:quiz@db:5432/quiz_platform \
+            -e JWT_SECRET=$(openssl rand -hex 64) -e SEED_ON_BOOT=true -e SEED_ADMIN_PASSWORD='ChangeMe123!' "$IMG"
+          for i in $(seq 1 30); do curl -sf http://localhost:3001/health && break; sleep 2; done
+          curl -sf http://localhost:3001/health
+          curl -sf http://localhost:3001/ | grep -q '<div id="root">'
+          curl -sf http://localhost:3001/api/v1/categories | grep -q '"categories"'
+          docker logs api | tail -20
