@@ -1,26 +1,68 @@
 name: Release
 
-# Tag a version to publish a GitHub Release with the changelog section for it:
-#   git tag v1.0.0 && git push origin v1.0.0
+# Two ways to cut a release:
+#   1. push a tag:            git tag v1.0.0 && git push origin v1.0.0
+#   2. Actions → Release → Run workflow → version "1.0.0" (creates the tag for you)
+# Either way: a GitHub Release with the matching CHANGELOG.md section, and the
+# versioned Docker image (docker.yml on the tag ref).
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 1.0.0) — the tag v<version> is created from this ref'
+        required: true
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="v${{ github.event.inputs.version }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: Create tag (manual run only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "tag $TAG already exists"; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "$TAG"
+          git push origin "refs/tags/$TAG"
       - name: Extract notes for this version from CHANGELOG.md
         run: |
-          V="${GITHUB_REF_NAME#v}"
+          V="${{ steps.tag.outputs.tag }}"; V="${V#v}"
           awk -v v="$V" '/^## \[/{p = index($0, "[" v "]") > 0} p' CHANGELOG.md > notes.md
-          [ -s notes.md ] || echo "Release $GITHUB_REF_NAME" > notes.md
+          [ -s notes.md ] || echo "Release v$V" > notes.md
           cat notes.md
-      - name: Create release
+      - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes-file notes.md
+          else
+            gh release create "$TAG" --title "$TAG" --notes-file notes.md --verify-tag
+          fi
+      - name: Build the versioned Docker image (manual run only; tag pushes trigger docker.yml directly)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run docker.yml --ref "refs/tags/${{ steps.tag.outputs.tag }}"
