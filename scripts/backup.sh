@@ -10,7 +10,8 @@ mkdir -p "$BACKUP_DIR"
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 file="$BACKUP_DIR/quiz-$stamp.dump"
 pg_dump --format=custom --compress=6 --no-owner --no-privileges --dbname="$DATABASE_URL" --file="$file"
-sha256sum "$file" > "$file.sha256"
+# checksum names the bare file so restore.sh can verify it from inside BACKUP_DIR
+(cd "$BACKUP_DIR" && sha256sum "$(basename "$file")" > "$(basename "$file").sha256")
 echo "backup written: $file ($(du -h "$file" | cut -f1))"
 if [ -n "${BACKUP_S3_URI:-}" ]; then aws s3 cp "$file" "$BACKUP_S3_URI/" && aws s3 cp "$file.sha256" "$BACKUP_S3_URI/"; fi
 if [ -n "${BACKUP_COPY_CMD:-}" ]; then eval "${BACKUP_COPY_CMD//\{file\}/$file}"; fi
