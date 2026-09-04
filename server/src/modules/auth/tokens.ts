@@ -8,17 +8,20 @@ export interface AccessTokenPayload {
   sub: string;
   role: Role;
   guest: boolean;
+  /** issued-at (seconds); compared with users.sessions_valid_after */
+  iat?: number;
 }
 
 export function signAccessToken(payload: AccessTokenPayload): string {
-  return jwt.sign(payload, env.jwtSecret, { expiresIn: env.jwtAccessTtl, issuer: 'quiz-platform' });
+  const { iat: _iat, ...claims } = payload;
+  return jwt.sign(claims, env.jwtSecret, { expiresIn: env.jwtAccessTtl, issuer: 'quiz-platform' });
 }
 
 export function verifyAccessToken(token: string): AccessTokenPayload | null {
   try {
     const decoded = jwt.verify(token, env.jwtSecret, { issuer: 'quiz-platform' }) as jwt.JwtPayload;
     if (typeof decoded.sub !== 'string' || typeof decoded.role !== 'string') return null;
-    return { sub: decoded.sub, role: decoded.role as Role, guest: decoded.guest === true };
+    return { sub: decoded.sub, role: decoded.role as Role, guest: decoded.guest === true, iat: typeof decoded.iat === 'number' ? decoded.iat : undefined };
   } catch {
     return null;
   }

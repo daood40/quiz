@@ -8,11 +8,11 @@ export async function achievementRoutes(app: FastifyInstance): Promise<void> {
   app.get('/', async (req) => {
     const { rows } = await query(
       `SELECT id, slug, name, description, icon, xp_reward, sort_order FROM achievements
-       WHERE is_active = true ORDER BY sort_order, slug`,
+       WHERE is_active = true ORDER BY sort_order, slug LIMIT 500`,
     );
     let earned = new Set<string>();
     if (req.userId) {
-      const mine = await query('SELECT achievement_id FROM user_achievements WHERE user_id = $1', [req.userId]);
+      const mine = await query('SELECT achievement_id FROM user_achievements WHERE user_id = $1 LIMIT 500', [req.userId]);
       earned = new Set(mine.rows.map((r) => r.achievement_id));
     }
     return {

@@ -6,7 +6,7 @@ services:
     image: postgres:16
     environment:
       POSTGRES_USER: quiz
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       POSTGRES_DB: quiz_platform
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -23,15 +23,31 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: postgres://quiz:${POSTGRES_PASSWORD:-change_me}@db:5432/quiz_platform
+      DATABASE_URL: postgres://quiz:${POSTGRES_PASSWORD}@db:5432/quiz_platform
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (openssl rand -hex 64)}
+      TRUST_PROXY: ${TRUST_PROXY:-}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
       JOBS_ENABLED: "true"
       SEED_ON_BOOT: "true"
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@quiz.local}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-ChangeMe123!}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?set SEED_ADMIN_PASSWORD for the first admin login}
     ports:
       - "3001:3001"
+    restart: unless-stopped
+  backup:
+    # nightly pg_dump into ./backups (RPO 24h); set BACKUP_S3_URI / BACKUP_COPY_CMD for off-site copies
+    image: postgres:16
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://quiz:${POSTGRES_PASSWORD}@db:5432/quiz_platform
+      BACKUP_DIR: /backups
+      RETENTION_DAYS: ${RETENTION_DAYS:-14}
+    volumes:
+      - ./backups:/backups
+      - ./scripts:/scripts:ro
+    entrypoint: ["sh", "-c", "while true; do /scripts/backup.sh; sleep 86400; done"]
     restart: unless-stopped
 volumes:
   pgdata:

@@ -113,3 +113,53 @@ jobs:
       - name: Server log
         if: always()
         run: tail -50 server.log
+
+  restore-drill:
+    # backup → drop → restore → assert: an untested backup is not a backup
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: quiz
+          POSTGRES_PASSWORD: quiz_ci_password
+          POSTGRES_DB: quiz_platform
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U quiz"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://quiz:quiz_ci_password@localhost:5432/quiz_platform
+      PGPASSWORD: quiz_ci_password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: PostgreSQL 16 client
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-common >/dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y -qq postgresql-client-16 >/dev/null
+          psql -h localhost -U quiz -d quiz_platform -c 'CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pg_trgm;'
+      - name: Migrate + seed
+        run: npm run migrate && npm run seed
+        env:
+          NODE_ENV: production
+          JWT_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
+          SEED_ADMIN_PASSWORD: ChangeMe123!
+      - name: Backup
+        run: BACKUP_DIR=./backups ./scripts/backup.sh
+      - name: Destroy and restore
+        run: |
+          before=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM questions")
+          psql -h localhost -U quiz -d postgres -c 'DROP DATABASE quiz_platform' -c 'CREATE DATABASE quiz_platform'
+          psql "$DATABASE_URL" -c 'CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pg_trgm;'
+          ./scripts/restore.sh backups/quiz-*.dump
+          after=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM questions")
+          echo "questions before=$before after=$after"
+          [ "$before" = "$after" ] && [ "$after" -gt 100 ]

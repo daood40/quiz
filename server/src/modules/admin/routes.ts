@@ -1,10 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { invalidateCategoryCache } from '../categories/routes.js';
 import { audit } from '../../core/audit.js';
 import { badRequest, forbidden, notFound } from '../../core/errors.js';
+import { uuidParam } from '../../core/validate.js';
 import { DEFAULT_SETTINGS, getSettings, updateSettings } from '../../core/settings.js';
 import { query } from '../../db/pool.js';
-import { requireRole } from '../../plugins/auth.js';
+import { requireRole, invalidateSessionCache } from '../../plugins/auth.js';
 import { roleAtLeast } from '../auth/rbac.js';
 import type { Role } from '../auth/tokens.js';
 import { adminQuestionRoutes } from './questions.js';
@@ -118,7 +120,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/users/:id', { preHandler: [moderator] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const { rows } = await query('SELECT * FROM users WHERE id = $1', [id]);
     if (!rows[0]) throw notFound('User not found');
     const stats = await query('SELECT * FROM user_stats WHERE user_id = $1', [id]);
@@ -151,7 +153,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/users/:id/status', { preHandler: [moderator] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const parsed = z.object({ status: z.enum(['active', 'suspended', 'banned']) }).safeParse(req.body);
     if (!parsed.success) throw badRequest('Invalid status');
     const target = await query('SELECT role FROM users WHERE id = $1', [id]);
@@ -160,16 +162,18 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     if (roleAtLeast(target.rows[0].role as Role, 'moderator') && !roleAtLeast(req.userRole, 'admin')) {
       throw forbidden('Insufficient permissions for staff accounts');
     }
-    await query('UPDATE users SET status = $2, updated_at = now() WHERE id = $1', [id, parsed.data.status]);
+    const prev = await query('SELECT status FROM users WHERE id = $1', [id]);
+    await query('UPDATE users SET status = $2, updated_at = now(), sessions_valid_after = now() WHERE id = $1', [id, parsed.data.status]);
     if (parsed.data.status !== 'active') {
       await query('UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL', [id]);
     }
-    audit(req.userId, `admin.user.${parsed.data.status}`, 'user', id);
+    invalidateSessionCache(id);
+    audit(req.userId, `admin.user.${parsed.data.status}`, 'user', id, { previous: prev.rows[0]?.status }, req.ip);
     return { ok: true };
   });
 
   app.post('/users/:id/role', { preHandler: [admin] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const parsed = z.object({ role: z.enum(['user', 'moderator', 'editor', 'admin', 'super_admin']) }).safeParse(req.body);
     if (!parsed.success) throw badRequest('Invalid role');
     // only super_admin can grant admin or super_admin
@@ -177,9 +181,14 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       throw forbidden('Only super admins can grant admin roles');
     }
     if (id === req.userId) throw badRequest('You cannot change your own role');
-    const { rowCount } = await query('UPDATE users SET role = $2, updated_at = now() WHERE id = $1', [id, parsed.data.role]);
-    if (!rowCount) throw notFound('User not found');
-    audit(req.userId, 'admin.user.role_changed', 'user', id, { role: parsed.data.role });
+    const { rows } = await query(
+      `UPDATE users u SET role = $2, updated_at = now(), sessions_valid_after = now()
+       FROM (SELECT role AS previous FROM users WHERE id = $1) p WHERE u.id = $1 RETURNING p.previous`,
+      [id, parsed.data.role],
+    );
+    if (!rows.length) throw notFound('User not found');
+    invalidateSessionCache(id);
+    audit(req.userId, 'admin.user.role_changed', 'user', id, { role: parsed.data.role, previous: rows[0].previous }, req.ip);
     return { ok: true };
   });
 
@@ -202,7 +211,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/reports/:id/resolve', { preHandler: [moderator] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const parsed = z
       .object({ status: z.enum(['resolved', 'dismissed', 'reviewing']), resolution: z.string().max(1000).default('') })
       .safeParse(req.body);
@@ -234,7 +243,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/suspicious/:attemptId', { preHandler: [moderator] }, async (req) => {
-    const { attemptId } = req.params as { attemptId: string };
+    const attemptId = uuidParam((req.params as { attemptId: string }).attemptId, 'attempt id');
     const parsed = z.object({ suspicion: z.enum(['cleared', 'under_review', 'suspicious']) }).safeParse(req.body);
     if (!parsed.success) throw badRequest('Invalid suspicion status');
     const { rowCount } = await query('UPDATE attempts SET suspicion = $2 WHERE id = $1', [attemptId, parsed.data.suspicion]);
@@ -251,12 +260,24 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.patch('/settings', { preHandler: [admin] }, async (req) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     const patch: Record<string, unknown> = {};
+    const shapeOk = (value: unknown, sample: unknown): boolean => {
+      if (typeof sample === 'number') return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1_000_000;
+      if (typeof sample === 'boolean') return typeof value === 'boolean';
+      if (Array.isArray(sample)) return Array.isArray(value) && value.length <= 50 && value.every((v) => typeof v === 'number' && Number.isFinite(v));
+      if (sample && typeof sample === 'object') {
+        return !!value && typeof value === 'object' && !Array.isArray(value) &&
+          Object.values(value as Record<string, unknown>).every((v) => typeof v === 'number' && Number.isFinite(v) && v >= 0);
+      }
+      return typeof value === typeof sample;
+    };
     for (const key of Object.keys(body)) {
+      const sample = (DEFAULT_SETTINGS as unknown as Record<string, unknown>)[key];
+      if (sample !== undefined && !shapeOk(body[key], sample)) throw badRequest(`Invalid value for setting ${key}`);
       if (key in DEFAULT_SETTINGS) patch[key] = body[key];
     }
     if (Object.keys(patch).length === 0) throw badRequest('No recognized settings in payload');
     const settings = await updateSettings(patch, req.userId);
-    audit(req.userId, 'admin.settings.updated', 'settings', '', { keys: Object.keys(patch) });
+    audit(req.userId, 'admin.settings.updated', 'settings', '', { keys: Object.keys(patch), patch }, req.ip);
     return { settings };
   });
 
@@ -280,12 +301,13 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
       [c.slug, JSON.stringify(c.name), JSON.stringify(c.description), c.parentId ?? null, c.icon, c.color, c.sortOrder],
     );
+    invalidateCategoryCache();
     audit(req.userId, 'admin.category.created', 'category', rows[0].id);
     return { id: rows[0].id };
   });
 
   app.patch('/categories/:id', { preHandler: [admin] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const parsed = z
       .object({
         name: z.record(z.string()).optional(),
@@ -320,20 +342,23 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       ],
     );
     if (!rowCount) throw notFound('Category not found');
+    invalidateCategoryCache();
     audit(req.userId, 'admin.category.updated', 'category', id);
     return { ok: true };
   });
 
   app.delete('/categories/:id', { preHandler: [admin] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const inUse = await query('SELECT 1 FROM questions WHERE category_id = $1 OR subcategory_id = $1 LIMIT 1', [id]);
     if (inUse.rowCount) {
       await query('UPDATE categories SET is_active = false, updated_at = now() WHERE id = $1', [id]);
-      audit(req.userId, 'admin.category.disabled', 'category', id);
+      invalidateCategoryCache();
+    audit(req.userId, 'admin.category.disabled', 'category', id);
       return { ok: true, disabled: true };
     }
     const { rowCount } = await query('DELETE FROM categories WHERE id = $1', [id]);
     if (!rowCount) throw notFound('Category not found');
+    invalidateCategoryCache();
     audit(req.userId, 'admin.category.deleted', 'category', id);
     return { ok: true };
   });
@@ -364,17 +389,18 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   // ---------- audit log ----------
   app.get('/audit', { preHandler: [admin] }, async (req) => {
     const q = req.query as Record<string, string>;
-    const limit = Math.min(Number(q.limit ?? 50), 200);
-    const offset = Math.max(Number(q.offset ?? 0), 0);
+    const limit = Math.min(Math.max(Number(q.limit) || 50, 1), 200);
+    const offset = Math.max(Number(q.offset) || 0, 0);
     const params: unknown[] = [];
     const where: string[] = ['1=1'];
     if (q.action) {
       params.push(`${q.action}%`);
       where.push(`action LIKE $${params.length}`);
     }
+    params.push(limit, offset);
     const { rows } = await query(
       `SELECT l.*, u.username AS actor FROM audit_logs l LEFT JOIN users u ON u.id = l.actor_id
-       WHERE ${where.join(' AND ')} ORDER BY l.created_at DESC LIMIT ${limit} OFFSET ${offset}`,
+       WHERE ${where.join(' AND ')} ORDER BY l.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params,
     );
     return { logs: rows };

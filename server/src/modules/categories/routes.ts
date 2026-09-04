@@ -1,9 +1,15 @@
 import type { FastifyInstance } from 'fastify';
 import { query } from '../../db/pool.js';
 
+const CATEGORY_CACHE_MS = 60_000;
+let categoryCache: { at: number; body: unknown } | null = null;
+export function invalidateCategoryCache(): void { categoryCache = null; }
+
 export async function categoryRoutes(app: FastifyInstance): Promise<void> {
-  /** Active category tree with approved-question counts per difficulty. */
-  app.get('/', async () => {
+  /** Active category tree with approved-question counts per difficulty (cached 60s; hottest public read). */
+  app.get('/', async (_req, reply) => {
+    reply.header('cache-control', 'public, max-age=30');
+    if (categoryCache && Date.now() - categoryCache.at < CATEGORY_CACHE_MS) return categoryCache.body;
     const { rows } = await query(
       `SELECT c.id, c.slug, c.name, c.description, c.parent_id, c.icon, c.color, c.sort_order,
               COALESCE(q.total, 0) AS question_count,
@@ -19,9 +25,10 @@ export async function categoryRoutes(app: FastifyInstance): Promise<void> {
          ) d
        ) q ON true
        WHERE c.is_active = true
-       ORDER BY c.sort_order, c.slug`,
+       ORDER BY c.sort_order, c.slug
+       LIMIT 500`,
     );
-    return {
+    const body = {
       categories: rows.map((r) => ({
         id: r.id,
         slug: r.slug,
@@ -35,5 +42,7 @@ export async function categoryRoutes(app: FastifyInstance): Promise<void> {
         byDifficulty: r.by_difficulty,
       })),
     };
+    categoryCache = { at: Date.now(), body };
+    return body;
   });
 }

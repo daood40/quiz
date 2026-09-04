@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { query } from '../../db/pool.js';
+import { z } from 'zod';
+import { badRequest } from '../../core/errors.js';
 import { requireAuth } from '../../plugins/auth.js';
 
 export async function notificationRoutes(app: FastifyInstance): Promise<void> {
@@ -20,7 +22,9 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/read', { preHandler: [requireAuth] }, async (req) => {
-    const body = (req.body ?? {}) as { ids?: string[] };
+    const parsed = z.object({ ids: z.array(z.string().uuid()).max(500).optional() }).safeParse(req.body ?? {});
+    if (!parsed.success) throw badRequest('Invalid notification ids');
+    const body = parsed.data;
     if (Array.isArray(body.ids) && body.ids.length > 0) {
       await query(
         `UPDATE notifications SET read_at = now() WHERE user_id = $1 AND id = ANY($2::uuid[]) AND read_at IS NULL`,

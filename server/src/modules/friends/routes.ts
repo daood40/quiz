@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { audit } from '../../core/audit.js';
 import { badRequest, conflict, notFound } from '../../core/errors.js';
+import { uuidParam } from '../../core/validate.js';
 import { query } from '../../db/pool.js';
 import { requireAccount } from '../../plugins/auth.js';
 
@@ -19,7 +20,7 @@ export async function friendRoutes(app: FastifyInstance): Promise<void> {
        FROM friendships f
        JOIN users u ON u.id = CASE WHEN f.user_id = $1 THEN f.friend_id ELSE f.user_id END
        WHERE (f.user_id = $1 OR f.friend_id = $1) AND f.status <> 'blocked' AND u.status = 'active'
-       ORDER BY f.created_at DESC`,
+       ORDER BY f.created_at DESC LIMIT 1000`,
       [req.userId],
     );
     const friends = [];
@@ -99,7 +100,7 @@ export async function friendRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.delete('/:userId', { preHandler: [requireAccount] }, async (req) => {
-    const { userId } = req.params as { userId: string };
+    const userId = uuidParam((req.params as { userId: string }).userId, 'user id');
     await query(
       `DELETE FROM friendships WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)`,
       [req.userId, userId],

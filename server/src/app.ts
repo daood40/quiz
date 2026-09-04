@@ -1,13 +1,19 @@
+import { randomUUID } from 'node:crypto';
+import type { IncomingMessage } from 'node:http';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { env } from './config/env.js';
+import { pool, query } from './db/pool.js';
+import { reportError } from './core/alerts.js';
 import { AppError } from './core/errors.js';
+import { errors5xx, registerMetrics } from './core/metrics.js';
 import { rateLimit } from './core/rateLimit.js';
 import { attachIdentity } from './plugins/auth.js';
+import { aiRoutes } from './modules/ai/routes.js';
 import { adminRoutes } from './modules/admin/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { categoryRoutes } from './modules/categories/routes.js';
@@ -26,11 +32,23 @@ import { tournamentRoutes } from './modules/tournaments/service.js';
 import { userRoutes } from './modules/users/routes.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
-  const app = Fastify({
-    logger: env.isTest ? false : { level: env.isProd ? 'info' : 'debug' },
+  const options: FastifyServerOptions = {
+    logger: env.isTest
+      ? false
+      : {
+          level: env.isProd ? 'info' : 'debug',
+          redact: { paths: ['req.headers.authorization', 'req.headers.cookie'], censor: '[redacted]' },
+        },
     bodyLimit: 5 * 1024 * 1024,
-    trustProxy: true,
-  });
+    trustProxy: env.trustProxy,
+    // honour an upstream correlation id (load balancer / gateway), otherwise generate one
+    genReqId: (req: IncomingMessage) => {
+      const incoming = req.headers['x-request-id'];
+      const id = Array.isArray(incoming) ? incoming[0] : incoming;
+      return id && /^[A-Za-z0-9._-]{8,128}$/.test(id) ? id : randomUUID();
+    },
+  };
+  const app = Fastify(options);
 
   await app.register(cors, {
     origin: env.corsOrigin.split(',').map((o) => o.trim()),
@@ -44,10 +62,31 @@ export async function buildApp(): Promise<FastifyInstance> {
     if (req.raw.url?.startsWith('/api/')) await globalLimiter(req, reply);
   });
 
-  app.addHook('onSend', async (_req, reply) => {
+  app.addHook('onSend', async (req, reply) => {
+    reply.header('x-request-id', req.id);
     reply.header('x-content-type-options', 'nosniff');
     reply.header('x-frame-options', 'DENY');
     reply.header('referrer-policy', 'no-referrer');
+    reply.header('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+    if (!req.raw.url?.startsWith('/api/')) {
+      // SPA shell: scripts only from self; styles/fonts from self + Google Fonts; media may be external https
+      reply.header(
+        'content-security-policy',
+        [
+          "default-src 'self'",
+          "script-src 'self'",
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+          "font-src 'self' data: https://fonts.gstatic.com",
+          "img-src 'self' data: blob: https:",
+          "media-src 'self' blob: https:",
+          "connect-src 'self'",
+          "worker-src 'self'",
+          "frame-ancestors 'none'",
+          "base-uri 'self'",
+          "form-action 'self'",
+        ].join('; '),
+      );
+    }
     if (env.isProd) reply.header('strict-transport-security', 'max-age=31536000; includeSubDomains');
   });
 
@@ -65,10 +104,36 @@ export async function buildApp(): Promise<FastifyInstance> {
       });
     }
     req.log.error(err);
-    return reply.status(500).send({ error: { code: 'internal_error', message: 'Something went wrong' } });
+    errors5xx.inc();
+    reportError(err, { kind: 'http_500', requestId: req.id, method: req.method, url: req.raw.url, userId: req.userId ?? null });
+    return reply.status(500).send({ error: { code: 'internal_error', message: 'Something went wrong', requestId: req.id } });
   });
 
+  registerMetrics(app);
+
+  // liveness: process is up
   app.get('/health', async () => ({ ok: true, ts: new Date().toISOString() }));
+  // readiness: database reachable, pool not exhausted, jobs healthy — point platform health checks here
+  app.get('/ready', async (_req, reply) => {
+    const started = Date.now();
+    try {
+      await query('SELECT 1');
+    } catch (err) {
+      reply.status(503);
+      return { ok: false, db: 'unreachable', error: (err as Error).message, ts: new Date().toISOString() };
+    }
+    const jobs = await query<{ name: string; last_status: string; last_finished_at: string | null; failures: string }>(
+      'SELECT name, last_status, last_finished_at, failures FROM job_runs ORDER BY name',
+    ).catch(() => ({ rows: [] as Array<{ name: string; last_status: string; last_finished_at: string | null; failures: string }> }));
+    const failing = jobs.rows.filter((j) => j.last_status === 'error').map((j) => j.name);
+    return {
+      ok: true,
+      db: { ok: true, latencyMs: Date.now() - started, pool: { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount } },
+      jobs: { failing, tracked: jobs.rows.length },
+      version: process.env.npm_package_version ?? null,
+      ts: new Date().toISOString(),
+    };
+  });
 
   await app.register(
     async (api) => {
@@ -88,6 +153,7 @@ export async function buildApp(): Promise<FastifyInstance> {
       await api.register(statsRoutes, { prefix: '/stats' });
       await api.register(searchRoutes, { prefix: '/search' });
       await api.register(adminRoutes, { prefix: '/admin' });
+      await api.register(aiRoutes, { prefix: '/admin/ai' });
     },
     { prefix: '/api/v1' },
   );

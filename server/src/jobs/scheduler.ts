@@ -1,4 +1,7 @@
-import { query } from '../db/pool.js';
+import { reportError } from '../core/alerts.js';
+import { log } from '../core/log.js';
+import { jobRuns } from '../core/metrics.js';
+import { pool, query } from '../db/pool.js';
 import { expireStaleAttempts } from '../modules/quizzes/attempts.js';
 import { closeEndedMonthlyChallenges, ensureMonthlyChallenge } from '../modules/monthly/service.js';
 import { recomputeQuality } from '../modules/questions/service.js';
@@ -9,10 +12,48 @@ import { recomputeQuality } from '../modules/questions/service.js';
  * (see docs/DEPLOYMENT.md); the functions are already isolated for that.
  */
 const timers: NodeJS.Timeout[] = [];
+const inFlight = new Set<string>();
+
+/** Runs one job tick: cluster-wide advisory lock (no double runs), overlap guard, telemetry row. */
+export async function runJob(name: string, fn: () => Promise<unknown>): Promise<'ok' | 'error' | 'skipped'> {
+  if (inFlight.has(name)) return 'skipped';
+  inFlight.add(name);
+  const client = await pool.connect();
+  try {
+    const lock = await client.query<{ ok: boolean }>('SELECT pg_try_advisory_lock(hashtext($1)) AS ok', [`job:${name}`]);
+    if (!lock.rows[0]?.ok) return 'skipped';
+    await query(
+      `INSERT INTO job_runs (name, last_started_at, last_status, runs) VALUES ($1, now(), 'running', 1)
+       ON CONFLICT (name) DO UPDATE SET last_started_at = now(), last_status = 'running', runs = job_runs.runs + 1`,
+      [name],
+    );
+    try {
+      await fn();
+      await query(`UPDATE job_runs SET last_finished_at = now(), last_status = 'ok', last_error = NULL WHERE name = $1`, [name]);
+      jobRuns.inc({ job: name, status: 'ok' });
+      return 'ok';
+    } catch (err) {
+      const message = (err as Error).message;
+      log.error({ job: name, err }, 'background job failed');
+      jobRuns.inc({ job: name, status: 'error' });
+      reportError(err, { kind: 'job_failed', job: name });
+      await query(
+        `UPDATE job_runs SET last_finished_at = now(), last_status = 'error', last_error = $2, failures = failures + 1 WHERE name = $1`,
+        [name, message.slice(0, 2000)],
+      ).catch(() => undefined);
+      return 'error';
+    } finally {
+      await client.query('SELECT pg_advisory_unlock(hashtext($1))', [`job:${name}`]).catch(() => undefined);
+    }
+  } finally {
+    client.release();
+    inFlight.delete(name);
+  }
+}
 
 function every(ms: number, name: string, fn: () => Promise<unknown>): void {
   const t = setInterval(() => {
-    fn().catch((err) => console.error(`job ${name} failed:`, err.message));
+    void runJob(name, fn).catch((err) => log.error({ job: name, err }, 'job runner failed'));
   }, ms);
   t.unref();
   timers.push(t);
@@ -37,9 +78,22 @@ export function startJobs(): void {
   every(15 * 60 * 1000, 'question-quality', async () => {
     const { rows } = await query(
       `SELECT s.question_id FROM question_stats s
-       WHERE s.attempts >= 5 ORDER BY s.updated_at DESC LIMIT 50`,
+       WHERE s.attempts >= 5 ORDER BY s.quality_computed_at ASC NULLS FIRST LIMIT 50`,
     );
-    for (const r of rows) await recomputeQuality(r.question_id).catch(() => undefined);
+    for (const r of rows) {
+      await recomputeQuality(r.question_id);
+      await query('UPDATE question_stats SET quality_computed_at = now() WHERE question_id = $1', [r.question_id]);
+    }
+  });
+
+  // retention: stale guest accounts (never played), old audit/analytics rows
+  every(6 * 60 * 60 * 1000, 'retention', async () => {
+    await query(
+      `DELETE FROM users u WHERE u.is_guest = true AND u.created_at < now() - interval '30 days'
+         AND NOT EXISTS (SELECT 1 FROM attempts a WHERE a.user_id = u.id AND a.status = 'submitted')`,
+    );
+    await query(`DELETE FROM analytics_events WHERE created_at < now() - interval '180 days'`);
+    await query(`DELETE FROM audit_logs WHERE created_at < now() - interval '400 days'`);
   });
 
   // leaderboard snapshot freshness for hot boards

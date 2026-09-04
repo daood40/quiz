@@ -182,10 +182,21 @@ export async function adminQuestionRoutes(app: FastifyInstance): Promise<void> {
 
   app.delete('/:id', { preHandler: [requireRole('admin')] }, async (req) => {
     const { id } = req.params as { id: string };
+    if (!z.string().uuid().safeParse(id).success) throw notFound('Question not found');
+    // answered questions are archived (attempt history, refunds and stats stay intact);
+    // only a question nobody has ever answered is physically removed
+    const answered = await query('SELECT 1 FROM attempt_answers WHERE question_id = $1 LIMIT 1', [id]);
+    if (answered.rowCount) {
+      const { rowCount } = await query(
+        `UPDATE questions SET status = 'archived', updated_at = now() WHERE id = $1 AND status <> 'archived'`, [id]);
+      if (!rowCount) throw notFound('Question not found');
+      audit(req.userId, 'question.archived', 'question', id, { reason: 'delete requested; has answers' }, req.ip);
+      return { ok: true, archived: true };
+    }
     const { rowCount } = await query('DELETE FROM questions WHERE id = $1', [id]);
     if (!rowCount) throw notFound('Question not found');
-    audit(req.userId, 'question.deleted', 'question', id);
-    return { ok: true };
+    audit(req.userId, 'question.deleted', 'question', id, {}, req.ip);
+    return { ok: true, archived: false };
   });
 
   app.post('/:id/recompute-quality', { preHandler: [moderator] }, async (req) => {

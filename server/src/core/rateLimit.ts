@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { env } from '../config/env.js';
+import { rateLimited } from './metrics.js';
 import { tooMany } from './errors.js';
 
 /**
@@ -18,7 +19,7 @@ export function rateLimit(opts: { max?: number; windowMs?: number; keyPrefix?: s
   const windowMs = opts.windowMs ?? env.rateLimitWindowMs;
   const prefix = opts.keyPrefix ?? 'general';
   return async (req: FastifyRequest, _reply: FastifyReply): Promise<void> => {
-    if (env.isTest) return; // deterministic tests; rate-limit logic is unit-tested separately
+    if (env.isTest && process.env.RATE_LIMIT_IN_TEST !== '1') return; // deterministic tests unless a test opts in
     const key = `${prefix}:${req.userId ?? req.ip}`;
     const now = Date.now();
     const bucket = buckets.get(key);
@@ -27,7 +28,10 @@ export function rateLimit(opts: { max?: number; windowMs?: number; keyPrefix?: s
       return;
     }
     bucket.count++;
-    if (bucket.count > max) throw tooMany();
+    if (bucket.count > max) {
+      rateLimited.inc({ limiter: prefix });
+      throw tooMany();
+    }
   };
 }
 

@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pool, closePool } from './pool.js';
 
+const MIGRATION_LOCK_KEY = 7_412_009;
 const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), 'migrations');
 
 /** Applies pending SQL migrations in filename order, each in its own transaction. */
@@ -15,9 +16,13 @@ export async function migrate(): Promise<string[]> {
     )`);
 
   const files = readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort();
+  const ran: string[] = [];
+  // one migrator at a time across all instances (rolling deploys, autoscaling)
+  const lockClient = await pool.connect();
+  try {
+  await lockClient.query('SELECT pg_advisory_lock($1)', [MIGRATION_LOCK_KEY]);
   const { rows } = await pool.query<{ name: string }>('SELECT name FROM schema_migrations');
   const applied = new Set(rows.map((r) => r.name));
-  const ran: string[] = [];
 
   for (const file of files) {
     if (applied.has(file)) continue;
@@ -35,6 +40,10 @@ export async function migrate(): Promise<string[]> {
     } finally {
       client.release();
     }
+  }
+  } finally {
+    await lockClient.query('SELECT pg_advisory_unlock($1)', [MIGRATION_LOCK_KEY]).catch(() => undefined);
+    lockClient.release();
   }
   return ran;
 }

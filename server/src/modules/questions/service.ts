@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { audit } from '../../core/audit.js';
 import { badRequest, notFound, validationError } from '../../core/errors.js';
-import { query } from '../../db/pool.js';
+import { query, withTransaction } from '../../db/pool.js';
 import { normalizeText } from './engine/normalize.js';
 import { registry } from './engine/registry.js';
 
@@ -228,24 +228,38 @@ export async function refundQuestionThisSeason(questionId: string, actor: string
      GROUP BY a.user_id`,
     [questionId],
   );
-  for (const r of rows) {
-    const pts = Number(r.max_score) || 0;
-    if (pts <= 0) continue;
-    await query(`UPDATE users SET total_points = total_points + $2 WHERE id = $1`, [r.user_id, pts]);
-    await query(
-      `UPDATE leaderboard_scores SET points = points + $2
-       WHERE user_id = $1 AND scope IN ('global','monthly') `,
-      [r.user_id, pts],
+  const credits = rows.map((r) => ({ userId: r.user_id, pts: Number(r.max_score) || 0 })).filter((c) => c.pts > 0);
+  if (credits.length === 0) return 0;
+  const ids = credits.map((c) => c.userId);
+  const pts = credits.map((c) => c.pts);
+  // three set-based statements in one transaction: all users refunded or none
+  await withTransaction(async (client) => {
+    await client.query(
+      `UPDATE users u SET total_points = u.total_points + c.pts
+       FROM unnest($1::uuid[], $2::int[]) AS c(user_id, pts) WHERE u.id = c.user_id`,
+      [ids, pts],
     );
-    await query(
-      `INSERT INTO notifications (user_id, kind, title, body, data) VALUES ($1,'system',$2,$3,$4)`,
-      [r.user_id, JSON.stringify({ en: 'Points refunded', ar: 'تمت إعادة نقاطك' }),
-       JSON.stringify({ en: `A question was confirmed wrong — +${pts} points`, ar: `ثبت خطأ سؤال — +${pts} نقطة` }),
-       JSON.stringify({ questionId, points: pts })],
+    await client.query(
+      `UPDATE leaderboard_scores ls SET points = ls.points + c.pts
+       FROM unnest($1::uuid[], $2::int[]) AS c(user_id, pts)
+       WHERE ls.user_id = c.user_id AND ls.scope IN ('global','monthly')`,
+      [ids, pts],
     );
-  }
-  audit(actor, 'question.refund', 'question', questionId, { users: rows.length });
-  return rows.length;
+    await client.query(
+      `INSERT INTO notifications (user_id, kind, title, body, data)
+       SELECT c.user_id, 'system',
+              '{"en":"Points refunded","ar":"تمت إعادة نقاطك"}'::jsonb,
+              jsonb_build_object('en', 'A question was confirmed wrong — +' || c.pts || ' points',
+                                 'ar', 'ثبت خطأ سؤال — +' || c.pts || ' نقطة'),
+              jsonb_build_object('questionId', $3::text, 'points', c.pts)
+       FROM unnest($1::uuid[], $2::int[]) AS c(user_id, pts)`,
+      [ids, pts, questionId],
+    );
+    // refunded points must show on the boards immediately
+    await client.query(`DELETE FROM leaderboard_snapshots WHERE scope IN ('global','monthly')`);
+  });
+  audit(actor, 'question.refund', 'question', questionId, { users: credits.length });
+  return credits.length;
 }
 
 export async function reportQuestion(

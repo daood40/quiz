@@ -95,7 +95,7 @@ npm run dev               # API على :3001 والواجهة على :5173
   الواجهة بوضع Demo (بـ `VITE_DEMO=1` ومسار أساس `‎/quiz/‎` ليطابق
   `daood40.github.io/quiz/`) ثم ينشرها على GitHub Pages تلقائيًا.
 - **‎.github/workflows/ci.yml** — مع كل push يشغّل فحص الأنواع والاختبارات
-  (91 اختبارًا على PostgreSQL حقيقية) والبناء الكامل ودخان E2E بـ Playwright.
+  (112 اختبارًا على PostgreSQL حقيقية) والبناء الكامل ودخان E2E بـ Playwright.
 - **‎.github/workflows/docker.yml** — يبني صورة الإنتاج وينشرها على GHCR
   (`latest` مع كل push، و`vX.Y.Z` مع كل وسم) بعد تشغيلها فعليًا مع PostgreSQL.
 - **‎.github/workflows/release.yml** — أي وسم `v*` ينشئ إصدار GitHub بملاحظات

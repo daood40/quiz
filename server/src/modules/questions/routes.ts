@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { badRequest } from '../../core/errors.js';
+import { uuidParam } from '../../core/validate.js';
 import { rateLimit } from '../../core/rateLimit.js';
 import { requireAuth } from '../../plugins/auth.js';
 import { reportQuestion } from './service.js';
@@ -10,7 +11,7 @@ export async function questionRoutes(app: FastifyInstance): Promise<void> {
   const reportLimiter = rateLimit({ max: 10, keyPrefix: 'question-report' });
 
   app.post('/:id/report', { preHandler: [requireAuth, reportLimiter] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id, 'question id');
     const parsed = z
       .object({
         reason: z.enum(['wrong_answer', 'wrong_question', 'typo', 'duplicate', 'offensive', 'technical', 'other']),

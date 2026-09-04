@@ -1,4 +1,5 @@
 import { query } from '../db/pool.js';
+import { log } from './log.js';
 
 /** Fire-and-forget audit logging — never breaks the request path. */
 export function audit(
@@ -13,7 +14,7 @@ export function audit(
     `INSERT INTO audit_logs (actor_id, action, entity, entity_id, details, ip)
      VALUES ($1, $2, $3, $4, $5, $6)`,
     [actorId, action, entity, entityId, JSON.stringify(details), ip],
-  ).catch((err) => console.error('audit log failed:', err.message));
+  ).catch((err) => log.error({ err }, 'audit log write failed'));
 }
 
 export function trackEvent(userId: string | null, kind: string, properties: Record<string, unknown> = {}): void {
@@ -21,5 +22,5 @@ export function trackEvent(userId: string | null, kind: string, properties: Reco
     userId,
     kind,
     JSON.stringify(properties),
-  ]).catch((err) => console.error('analytics event failed:', err.message));
+  ]).catch((err) => log.error({ err }, 'analytics event write failed'));
 }

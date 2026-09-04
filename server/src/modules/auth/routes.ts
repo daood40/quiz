@@ -32,7 +32,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     return svc.createGuest(body.language, req.ip);
   });
 
-  app.post('/refresh', async (req) => {
+  app.post('/refresh', { preHandler: [authLimiter] }, async (req) => {
     const body = parse(z.object({ refreshToken: z.string().min(10) }), req.body);
     return svc.refresh(body.refreshToken);
   });

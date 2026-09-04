@@ -75,16 +75,19 @@ function SingleChoice({ question, onSubmit, disabled, withConfidence }: Props & 
     return () => window.removeEventListener('keydown', onKey);
   }, [disabled, options, selected, confidence, withConfidence, onSubmit]);
   return (
-    <div className="stack">
+    <div className="stack" role="radiogroup" aria-label={t('question')}>
       {options.map((o, i) => (
         <button
           key={str(o.id)}
+          role="radio"
+          aria-checked={selected === o.id}
           className={`option k${i % 4} ${selected === o.id ? 'selected' : ''}`}
           onClick={() => !disabled && setSelected(str(o.id))}
           disabled={disabled}
         >
-          <span className="opt-key" aria-label={String(keys[i] ?? i + 1)}>{SHAPES[i % 4]}</span>
-          {o.media ? <img src={str((o.media as Record<string, unknown>).url)} alt="" style={{ maxHeight: 80, borderRadius: 8 }} /> : null}
+          <span className="opt-key" aria-hidden="true">{SHAPES[i % 4]}</span>
+          <span className="sr-only">{String(keys[i] ?? i + 1)}. </span>
+          {o.media ? <img src={str((o.media as Record<string, unknown>).url)} alt={pick(o.text)} loading="lazy" decoding="async" style={{ maxHeight: 80, borderRadius: 8 }} /> : null}
           {pick(o.text)}
         </button>
       ))}
@@ -119,8 +122,8 @@ function MultiChoice({ question, onSubmit, disabled }: Props) {
   return (
     <div className="stack">
       {options.map((o, i) => (
-        <button key={str(o.id)} className={`option k${i % 4} ${selected.has(str(o.id)) ? 'selected' : ''}`} onClick={() => !disabled && toggle(str(o.id))} disabled={disabled}>
-          <span className="opt-key">{selected.has(str(o.id)) ? '✓' : keys[i] ?? i + 1}</span>
+        <button key={str(o.id)} role="checkbox" aria-checked={selected.has(str(o.id))} className={`option k${i % 4} ${selected.has(str(o.id)) ? 'selected' : ''}`} onClick={() => !disabled && toggle(str(o.id))} disabled={disabled}>
+          <span className="opt-key" aria-hidden="true">{selected.has(str(o.id)) ? '✓' : keys[i] ?? i + 1}</span>
           {pick(o.text)}
         </button>
       ))}
@@ -177,9 +180,9 @@ function Ordering({ question, onSubmit, disabled }: Props) {
         <ol className="stack" style={{ margin: 0, paddingInlineStart: 24 }}>
           {order.map((id) => (
             <li key={id}>
-              <span className="chip selected" onClick={() => !disabled && setOrder((o) => o.filter((x) => x !== id))}>
-                {pick(byId.get(id)?.text)}
-              </span>
+              <button type="button" className="chip selected" onClick={() => !disabled && setOrder((o) => o.filter((x) => x !== id))} disabled={disabled} aria-label={`${pick(byId.get(id)?.text)} — ${t('removeFromOrder')}`}>
+                {pick(byId.get(id)?.text)} ✕
+              </button>
             </li>
           ))}
         </ol>
@@ -248,21 +251,39 @@ function Categorization({ question, onSubmit, disabled }: Props) {
 function Hotspot({ question, onSubmit, disabled }: Props) {
   const { t } = useI18n();
   const [point, setPoint] = useState<{ x: number; y: number } | null>(null);
+  const [cursor, setCursor] = useState<{ x: number; y: number }>({ x: 0.5, y: 0.5 });
   const media = question.content.media as { url?: string } | undefined;
+  const step = 0.05;
+  const onKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (disabled) return;
+    const moves: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+    if (moves[e.key]) {
+      e.preventDefault();
+      setCursor((c) => ({ x: Math.min(1, Math.max(0, c.x + moves[e.key][0])), y: Math.min(1, Math.max(0, c.y + moves[e.key][1])) }));
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      setPoint(cursor);
+    }
+  };
   return (
     <div className="stack">
-      <p className="muted">{t('clickImage')}</p>
+      <p className="muted">{t('clickImage')} · {t('hotspotHelp')}</p>
       <div
         className="hotspot-box"
         style={media?.url ? { backgroundImage: `url(${media.url})`, backgroundSize: 'cover' } : undefined}
         onClick={(e) => {
           if (disabled) return;
           const rect = e.currentTarget.getBoundingClientRect();
-          setPoint({ x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height });
+          const p = { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height };
+          setPoint(p);
+          setCursor(p);
         }}
+        onKeyDown={onKey}
         role="button"
-        aria-label="hotspot target"
+        tabIndex={disabled ? -1 : 0}
+        aria-label={t('hotspotHelp')}
       >
+        {!point && <span className="hotspot-dot" style={{ left: `${cursor.x * 100}%`, top: `${cursor.y * 100}%`, opacity: 0.5 }} aria-hidden="true" />}
         {point && <span className="hotspot-dot" style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }} />}
       </div>
       <SubmitBar onSubmit={() => point && onSubmit(point)} canSubmit={point !== null} disabled={disabled} />

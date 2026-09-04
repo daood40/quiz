@@ -1,9 +1,10 @@
 /**
- * Seed data. Two layers:
- *  - CORE (idempotent, safe in production): categories, achievements, super admin.
- *  - DEV (skipped when NODE_ENV=production unless SEED_DEV=true): sample users
- *    and a starter question bank covering every question family.
+ * Seed data (idempotent, production-safe):
+ *  - CORE: categories, achievements, super admin (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD).
+ *  - STARTER BANK: 150+ real EN/AR questions covering every family (skip with SEED_QUESTIONS=false).
+ * A `seed.version` marker in app_settings short-circuits repeated boots (SEED_ON_BOOT).
  */
+import { randomBytes } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'node:url';
 import { env } from '../config/env.js';
@@ -289,7 +290,24 @@ function sampleQuestions(): SeedQuestion[] {
   return qs;
 }
 
+const SEED_VERSION = 2;
+
 export async function seed(): Promise<void> {
+  // repeated boots (SEED_ON_BOOT) return immediately once this seed version has been applied
+  const marker = await query(`SELECT value FROM app_settings WHERE key = 'seed.version'`).catch(() => ({ rows: [] as Array<{ value: unknown }> }));
+  if (Number(marker.rows[0]?.value) >= SEED_VERSION && process.env.SEED_FORCE !== 'true') {
+    console.log(`seed v${SEED_VERSION} already applied`);
+    return;
+  }
+  await seedContent();
+  await query(
+    `INSERT INTO app_settings (key, value) VALUES ('seed.version', $1::jsonb)
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+    [JSON.stringify(SEED_VERSION)],
+  );
+}
+
+async function seedContent(): Promise<void> {
   // ---------- CORE ----------
   for (let i = 0; i < CATEGORIES.length; i++) {
     const [slug, name, icon] = CATEGORIES[i];
@@ -312,7 +330,7 @@ export async function seed(): Promise<void> {
   const adminEmail = process.env.SEED_ADMIN_EMAIL ?? 'admin@quiz.local';
   const existing = await query('SELECT 1 FROM users WHERE email = $1', [adminEmail]);
   if (!existing.rowCount) {
-    const password = process.env.SEED_ADMIN_PASSWORD ?? `Admin!${Math.random().toString(36).slice(2, 10)}`;
+    const password = process.env.SEED_ADMIN_PASSWORD ?? `Admin!${randomBytes(9).toString('base64url')}`;
     const hash = await bcrypt.hash(password, env.bcryptRounds);
     const { rows } = await query(
       `INSERT INTO users (email, username, display_name, password_hash, role, email_verified_at)
@@ -320,8 +338,8 @@ export async function seed(): Promise<void> {
       [adminEmail, hash],
     );
     await query('INSERT INTO user_stats (user_id) VALUES ($1) ON CONFLICT DO NOTHING', [rows[0].id]);
-    console.log(`Created super admin ${adminEmail} — password: ${password}`);
-    if (!process.env.SEED_ADMIN_PASSWORD) console.log('(set SEED_ADMIN_PASSWORD to control this; change it after first login)');
+    if (process.env.SEED_ADMIN_PASSWORD) console.log(`Created super admin ${adminEmail}`);
+    else console.error(`Created super admin ${adminEmail} — one-time generated password: ${password} (rotate it now; set SEED_ADMIN_PASSWORD to avoid this log line)`);
   }
 
   // ---------- starter question bank ----------

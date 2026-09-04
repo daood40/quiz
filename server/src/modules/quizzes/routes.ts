@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { badRequest, notFound } from '../../core/errors.js';
+import { uuidParam } from '../../core/validate.js';
 import { rateLimit } from '../../core/rateLimit.js';
 import { query } from '../../db/pool.js';
 import { requireAuth } from '../../plugins/auth.js';
@@ -81,7 +82,7 @@ export async function quizRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true, bookmarked: true };
   });
   app.delete('/bookmarks/:questionId', { preHandler: [requireAuth] }, async (req) => {
-    const { questionId } = req.params as { questionId: string };
+    const questionId = uuidParam((req.params as { questionId: string }).questionId, 'question id');
     await query(`DELETE FROM question_bookmarks WHERE user_id = $1 AND question_id = $2`, [req.userId, questionId]);
     return { ok: true, bookmarked: false };
   });
@@ -129,7 +130,7 @@ export async function quizRoutes(app: FastifyInstance): Promise<void> {
 
   /** Play an admin-curated quiz (fixed identical question set). */
   app.post('/:quizId/start', { preHandler: [requireAuth, startLimiter] }, async (req) => {
-    const { quizId } = req.params as { quizId: string };
+    const quizId = uuidParam((req.params as { quizId: string }).quizId, 'quiz id');
     const { rows } = await query('SELECT * FROM quizzes WHERE id = $1', [quizId]);
     const quiz = rows[0];
     if (!quiz) throw notFound('Quiz not found');

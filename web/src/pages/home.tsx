@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { get } from '../api';
-import { EmptyState, Spinner, StatBox, fmtMs } from '../components';
+import { EmptyState, ErrorState, Spinner, fmtMs, useAsync, useStatusLabel } from '../components';
 import { useAuth } from '../ctx';
 import { useI18n } from '../i18n';
 
@@ -29,25 +29,27 @@ export function HomePage() {
   const dismissTip = () => { setShowTip(false); try { localStorage.setItem('tipSeen', '1'); } catch { /* ignore */ } };
   const { user } = useAuth();
   const nav = useNavigate();
-  const [categories, setCategories] = useState<Category[] | null>(null);
-  const [recent, setRecent] = useState<AttemptRow[] | null>(null);
+  const statusLabel = useStatusLabel();
+  const cats = useAsync(() => get<{ categories: Category[] }>('/categories').then((r) => r.categories), []);
+  const recentQ = useAsync(() => get<{ attempts: AttemptRow[] }>('/quizzes/attempts?limit=5').then((r) => r.attempts), []);
   const [monthly, setMonthly] = useState<{ yearMonth: string; questionCount: number } | null>(null);
   const [progress, setProgress] = useState<{ xp: number; level: number; nextLevelAt: number; progress: number } | null>(null);
   const [daily, setDaily] = useState<{ available: boolean; myAttempt: { status: string; score: number } | null } | null>(null);
 
   useEffect(() => {
-    void get<{ categories: Category[] }>('/categories').then((r) => setCategories(r.categories)).catch(() => setCategories([]));
-    void get<{ attempts: AttemptRow[] }>('/quizzes/attempts?limit=5').then((r) => setRecent(r.attempts)).catch(() => setRecent([]));
+    // secondary widgets: absence is a valid state (demo / not yet created), so they degrade quietly
     void get<{ monthlyChallenge: { yearMonth: string; questionCount: number } }>('/monthly-challenges/current')
       .then((r) => setMonthly(r.monthlyChallenge))
       .catch(() => setMonthly(null));
     void get<{ xp: number; level: number; nextLevelAt: number; progress: number }>('/achievements/progress')
       .then(setProgress)
-      .catch(() => undefined);
+      .catch(() => setProgress(null));
     void get<{ available: boolean; myAttempt: { status: string; score: number } | null }>('/quizzes/daily')
       .then(setDaily)
-      .catch(() => undefined);
+      .catch(() => setDaily(null));
   }, []);
+  const categories = cats.data;
+  const recent = recentQ.data;
 
   if (!user) return <Spinner />;
 
@@ -69,11 +71,7 @@ export function HomePage() {
               {user.streakFreezes > 0 && <span className="badge">🧊 {user.streakFreezes}</span>}
             </div>
           </div>
-          <button
-            className="btn lg"
-            style={{ background: '#fff', color: 'var(--primary-strong)', boxShadow: '0 6px 20px rgb(0 0 0 / 18%)' }}
-            onClick={() => nav('/play')}
-          >▶ {t('quickQuiz')}</button>
+          <button className="btn lg on-hero" onClick={() => nav('/play')}>▶ {t('quickQuiz')}</button>
         </div>
         {progress && (
           <div style={{ marginTop: 14 }}>
@@ -109,14 +107,14 @@ export function HomePage() {
       {showTip && (
         <div className="banner info row between" style={{ marginBottom: 16 }}>
           <span>💡 {t('welcomeTip')}</span>
-          <button className="btn ghost sm" onClick={dismissTip} aria-label="✕">✕</button>
+          <button className="btn ghost sm" onClick={dismissTip} aria-label={t('dismiss')}>✕</button>
         </div>
       )}
       <div className="card">
         <h2>{t('categories')}</h2>
-        {!categories ? (
+        {cats.error ? <ErrorState error={cats.error} onRetry={cats.reload} /> : !categories ? (
           <Spinner />
-        ) : (
+        ) : categories.length === 0 ? <EmptyState label={t('noCategories')} /> : (
           <div className="grid cols-3">
             {categories.filter((c) => !c.parentId).map((c, i) => (
               <button key={c.id} className="option cat" style={{ '--cat-hue': (i * 47) % 360 } as React.CSSProperties} onClick={() => nav(`/play?category=${c.id}`)}>
@@ -131,7 +129,7 @@ export function HomePage() {
 
       <div className="card">
         <h2>{t('recentResults')}</h2>
-        {!recent ? (
+        {recentQ.error ? <ErrorState error={recentQ.error} onRetry={recentQ.reload} /> : !recent ? (
           <Spinner />
         ) : recent.length === 0 ? (
           <EmptyState />
@@ -141,7 +139,7 @@ export function HomePage() {
             <tbody>
               {recent.map((a) => (
                 <tr key={a.id}>
-                  <td>{a.mode}</td>
+                  <td>{statusLabel(a.mode)}</td>
                   <td><strong>{a.score}</strong> / {a.max_score}</td>
                   <td>{a.correct_count}</td>
                   <td>{a.server_duration_ms ? fmtMs(a.server_duration_ms) : '—'}</td>

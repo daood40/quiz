@@ -58,6 +58,24 @@ EXPOSE 3001
 CMD ["node", "server/dist/index.js"]
 ```
 
+## Health, readiness, metrics, alerts
+
+| Endpoint | Use |
+|---|---|
+| `GET /health` | liveness: process is up (container HEALTHCHECK) |
+| `GET /ready` | readiness: `SELECT 1` latency, pool state, failing jobs — **point platform health checks here** |
+| `GET /metrics` | Prometheus (RED metrics, pool, jobs, rate-limit rejections); protect with `METRICS_TOKEN` or at the network edge |
+| `x-request-id` | echoed on every response and included in 500 bodies — quote it in bug reports |
+
+Set `ERROR_WEBHOOK_URL` to receive every unhandled error / failed job as JSON (Slack, Discord, PagerDuty relays), or `SENTRY_DSN` after `npm i @sentry/node -w server`. Set `TRUST_PROXY=1` behind Render/Fly/Railway/nginx so rate limits and audit IPs see the real client.
+
+## Backups & recovery (RPO 24h, RTO 30min)
+
+- `scripts/backup.sh` — `pg_dump -Fc` + checksum + retention (`RETENTION_DAYS`), optional off-site copy (`BACKUP_S3_URI` / `BACKUP_COPY_CMD`). The compose stack runs it nightly in the `backup` service into `./backups`.
+- `scripts/restore.sh <dump>` — verifies the checksum, restores, prints row counts.
+- CI job `restore-drill` proves every commit's backup restores (backup → drop → restore → assert counts).
+- Managed Postgres (Render/Fly/Railway) adds provider snapshots + PITR; keep the nightly dump as an independent copy.
+
 ## First boot
 1. `SEED_ON_BOOT=true` (or `npm run seed` once) with `SEED_ADMIN_EMAIL` /
    `SEED_ADMIN_PASSWORD` set → super admin + core categories/achievements +

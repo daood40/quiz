@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ApiError, del, get, post } from '../api';
-import { Spinner, StatBox, fmtMs, useOnline, useToast, useTypeSpecs } from '../components';
+import { ErrorState, Spinner, StatBox, fmtMs, useAction, useOnline, useToast, useTypeSpecs } from '../components';
 import { useAuth } from '../ctx';
-import { useI18n } from '../i18n';
+import { useI18n, type TKey } from '../i18n';
 import { QuestionRenderer, type PlayableQuestion } from '../QuestionRenderer';
 import { autoAdvanceEnabled, haptic, sfx } from '../sounds';
 
@@ -172,7 +172,7 @@ type OutcomeMark = 'correct' | 'partial' | 'incorrect' | 'timeout' | 'skipped';
 export function QuizPlayer({ session }: { session: StartResponse }) {
   const { t, pick } = useI18n();
   const nav = useNavigate();
-  const specs = useTypeSpecs();
+  const { specs, error: specsError, retry: retrySpecs } = useTypeSpecs();
   const online = useOnline();
   const toast = useToast();
   const { refreshUser } = useAuth();
@@ -312,7 +312,7 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
 
   // countdown (timed modes only; the server stays authoritative)
   useEffect(() => {
-    if (summary || !question || untimed || feedback) return;
+    if (summary || !question || untimed || feedback || !online) return; // offline: the clock waits for the connection
     timerRef.current = setInterval(() => {
       setTimeLeft((tl) => {
         if (tl <= 1) {
@@ -324,7 +324,7 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
       });
     }, 1000);
     return () => clearInterval(timerRef.current!);
-  }, [index, summary, question, submitAnswer, untimed, feedback]);
+  }, [index, summary, question, submitAnswer, untimed, feedback, online]);
 
   const useFiftyFifty = async () => {
     if (!question || powerups.fiftyFifty <= 0) return;
@@ -368,6 +368,7 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
   }, [question, eliminated]);
 
   if (summary) return <ResultView summary={summary} outcomes={outcomesRef.current} />;
+  if (!specs && specsError) return <div className="card"><ErrorState error={specsError} onRetry={retrySpecs} /></div>;
   if (!specs || !question || !displayQuestion) return <Spinner />;
 
   const hasOptions = Array.isArray(question.content.options) && (question.content.options as unknown[]).length >= 3;
@@ -391,22 +392,23 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
       {(powerups.fiftyFifty > 0 || powerups.timeExtend > 0 || powerups.audience > 0) && !feedback && (
         <div className="row" style={{ marginBottom: 10 }}>
           {powerups.fiftyFifty > 0 && (
-            <button className="powerup" onClick={useFiftyFifty} disabled={submitting || !hasOptions || !!eliminated[question.id]}>
-              ½ 50:50 <span className="count">{powerups.fiftyFifty}</span>
+            <button className="powerup" onClick={useFiftyFifty} disabled={submitting || !hasOptions || !!eliminated[question.id]} aria-label={`${t('fiftyFifty')} (${powerups.fiftyFifty})`} title={t('fiftyFifty')}>
+              ½ 50:50 <span className="count" aria-hidden="true">{powerups.fiftyFifty}</span>
             </button>
           )}
           {!untimed && powerups.timeExtend > 0 && (
-            <button className="powerup" onClick={useTimeExtend} disabled={submitting}>
-              ⏳ +20s <span className="count">{powerups.timeExtend}</span>
+            <button className="powerup" onClick={useTimeExtend} disabled={submitting} aria-label={`${t('timeExtend')} (${powerups.timeExtend})`} title={t('timeExtend')}>
+              ⏳ +20s <span className="count" aria-hidden="true">{powerups.timeExtend}</span>
             </button>
           )}
           {powerups.audience > 0 && hasOptions && !audience[question.id] && (
-            <button className="powerup" onClick={askAudience} disabled={submitting}>
-              👥 {t('askAudience')} <span className="count">{powerups.audience}</span>
+            <button className="powerup" onClick={askAudience} disabled={submitting} aria-label={`${t('askAudience')} (${powerups.audience})`}>
+              👥 {t('askAudience')} <span className="count" aria-hidden="true">{powerups.audience}</span>
             </button>
           )}
         </div>
       )}
+      {hasOptions && !feedback && <p className="muted kbd-hint" aria-hidden="true">⌨️ {t('keyboardHint')}</p>}
       <div className="card quiz-card">
         {feedback ? (
           <>
@@ -472,7 +474,7 @@ function formatAnswer(answer: unknown, question: PlayableQuestion, pick: (v: unk
     if (Array.isArray(o.accepted)) return (o.accepted as string[]).join(' / ');
     if ('value' in o) return String(o.value);
     if ('back' in o) return String(o.back);
-    return Object.entries(o).map(([k, v]) => `${k} → ${v}`).join('، ');
+    return Object.entries(o).map(([k, v]) => `${k} → ${v}`).join(document.documentElement.dir === 'rtl' ? '، ' : ', ');
   }
   return String(answer);
 }
@@ -515,7 +517,7 @@ function useCountUp(target: number, ms = 900): number {
   return value;
 }
 
-function AccuracyRing({ pct }: { pct: number }) {
+function AccuracyRing({ pct, label }: { pct: number; label: string }) {
   const r = 50;
   const c = 2 * Math.PI * r;
   const [offset, setOffset] = useState(c);
@@ -529,7 +531,7 @@ function AccuracyRing({ pct }: { pct: number }) {
         <circle className="track" cx={59} cy={59} r={r} fill="none" strokeWidth={9} />
         <circle className="arc" cx={59} cy={59} r={r} fill="none" strokeWidth={9} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset} />
       </svg>
-      <span className="num">{pct}%<small>accuracy</small></span>
+      <span className="num">{pct}%<small>{label}</small></span>
     </div>
   );
 }
@@ -555,7 +557,7 @@ export function ResultView({ summary, outcomes = [] }: { summary: Summary; outco
       if (navigator.share) await navigator.share({ text });
       else {
         await navigator.clipboard.writeText(text);
-        toast('✓ Copied');
+        toast(`✓ ${t('copied')}`);
       }
     } catch {
       /* cancelled */
@@ -567,14 +569,15 @@ export function ResultView({ summary, outcomes = [] }: { summary: Summary; outco
     c.width = 1080; c.height = 1080;
     const g = c.getContext('2d');
     if (!g) return;
+    const css = getComputedStyle(document.documentElement);
     const grad = g.createLinearGradient(0, 0, 1080, 1080);
-    grad.addColorStop(0, '#177d6e'); grad.addColorStop(1, '#4f945c');
+    grad.addColorStop(0, css.getPropertyValue('--primary').trim() || '#177d6e'); grad.addColorStop(1, css.getPropertyValue('--success').trim() || '#4f945c');
     g.fillStyle = grad; g.fillRect(0, 0, 1080, 1080);
     g.fillStyle = 'rgba(255,255,255,0.12)';
     g.beginPath(); g.arc(900, 140, 260, 0, Math.PI * 2); g.fill();
     g.fillStyle = '#fff'; g.textAlign = 'center';
     g.font = '700 54px Rubik, Segoe UI, sans-serif';
-    g.fillText('🧠 Quiz Platform', 540, 150);
+    g.fillText(`🧠 ${t('appName')}`, 540, 150);
     g.font = '900 220px Rubik, Segoe UI, sans-serif';
     g.fillText(String(shownScore), 540, 520);
     g.font = '600 56px Rubik, Segoe UI, sans-serif';
@@ -584,7 +587,7 @@ export function ResultView({ summary, outcomes = [] }: { summary: Summary; outco
     g.font = '60px sans-serif';
     g.fillText(outcomes.map((o: OutcomeMark) => (o === 'correct' ? '🟩' : o === 'partial' ? '🟨' : '⬜')).join(''), 540, 860);
     g.font = '500 40px Rubik, Segoe UI, sans-serif';
-    g.fillText('daood40.github.io/quiz', 540, 990);
+    g.fillText(window.location.host + (import.meta.env.BASE_URL === '/' ? '' : import.meta.env.BASE_URL.replace(/\/$/, '')), 540, 990);
     const blob: Blob | null = await new Promise((r) => c.toBlob(r, 'image/png'));
     if (!blob) return;
     const file = new File([blob], 'quiz-result.png', { type: 'image/png' });
@@ -605,7 +608,7 @@ export function ResultView({ summary, outcomes = [] }: { summary: Summary; outco
       <div className="result-emoji">{summary.isPerfect ? '🏆' : summary.accuracy >= 60 ? '🎉' : '💪'}</div>
       {summary.isPerfect && <h2>{t('perfect')}</h2>}
       <p className="result-score">{shownScore} <span className="of">/ {summary.maxScore}</span></p>
-      <AccuracyRing pct={summary.accuracy} />
+      <AccuracyRing pct={summary.accuracy} label={t('accuracy')} />
       {grid && <p style={{ fontSize: 20, letterSpacing: 2, margin: '6px 0 0' }}>{grid}</p>}
       <div className="grid cols-4" style={{ margin: '18px 0' }}>
         <StatBox value={summary.correct} label={t('correct')} />
@@ -654,29 +657,34 @@ export function ReviewPage() {
   const { attemptId } = useParams();
   const toast = useToast();
   const [data, setData] = useState<{ attempt: { score: number; maxScore: number }; items: ReviewItem[] } | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<unknown>(null);
   const [reported, setReported] = useState<Set<string>>(new Set());
+  const [reporting, setReporting] = useState<string | null>(null);
+  const [reason, setReason] = useState('wrong_answer');
+  const [details, setDetails] = useState('');
 
   useEffect(() => {
     void get<{ attempt: { score: number; maxScore: number }; items: ReviewItem[] }>(`/quizzes/attempts/${attemptId}/review`)
       .then(setData)
-      .catch((err) => setError(err instanceof ApiError ? err.message : t('error')));
+      .catch((err) => setError(err));
   }, [attemptId, t]);
 
-  const report = async (questionId: string) => {
-    try {
-      await post(`/questions/${questionId}/report`, { reason: 'other', details: 'Reported from review screen' });
-      setReported((s) => new Set(s).add(questionId));
-      toast('✓');
-    } catch (err) {
-      toast(err instanceof ApiError ? err.message : t('error'));
-    }
-  };
+  const [sendReport, sending] = useAction(async (questionId: string) => {
+    await post(`/questions/${questionId}/report`, { reason, details: details.trim() || undefined });
+    setReported((s) => new Set(s).add(questionId));
+    setReporting(null);
+    setDetails('');
+    toast(`✓ ${t('send')}`);
+  });
+  const REASONS: Array<[string, TKey]> = [
+    ['wrong_answer', 'reasonWrongAnswer'], ['wrong_question', 'reasonWrongQuestion'], ['typo', 'reasonTypo'], ['duplicate', 'reasonDuplicate'],
+    ['offensive', 'reasonOffensive'], ['technical', 'reasonTechnical'], ['other', 'reasonOther'],
+  ];
 
   const renderAnswer = (item: ReviewItem, answer: unknown): string =>
     formatAnswer(answer, { content: item.content } as PlayableQuestion, pick);
 
-  if (error) return <p className="error-text center">{error}</p>;
+  if (error) return <div className="page"><div className="card"><ErrorState error={error} /></div></div>;
   if (!data) return <Spinner />;
 
   const badge = (outcome: string) =>
@@ -698,9 +706,22 @@ export function ReviewPage() {
             <p><span className="muted">{t('yourAnswer')}:</span> {renderAnswer(item, item.yourAnswer)}</p>
             <p><span className="muted">{t('correctAnswer')}:</span> <strong>{renderAnswer(item, item.correctAnswer)}</strong></p>
             {pick(item.explanation) && <p className="banner info">{pick(item.explanation)}</p>}
-            <button className="btn ghost sm" onClick={() => report(item.questionId)} disabled={reported.has(item.questionId)}>
+            <button className="btn ghost sm" onClick={() => setReporting(reporting === item.questionId ? null : item.questionId)} disabled={reported.has(item.questionId)} aria-expanded={reporting === item.questionId}>
               {reported.has(item.questionId) ? '✓' : `⚑ ${t('reportQuestion')}`}
             </button>
+            {reporting === item.questionId && (
+              <form className="report-dialog stack" onSubmit={(e) => { e.preventDefault(); void sendReport(item.questionId); }}>
+                <label className="fld" htmlFor={`reason-${item.questionId}`}>{t('reportReason')}</label>
+                <select id={`reason-${item.questionId}`} value={reason} onChange={(e) => setReason(e.target.value)}>
+                  {REASONS.map(([v, k]) => <option key={v} value={v}>{t(k)}</option>)}
+                </select>
+                <textarea aria-label={t('details')} placeholder={t('details')} value={details} maxLength={500} rows={2} onChange={(e) => setDetails(e.target.value)} />
+                <div className="row tight">
+                  <button className="btn sm" type="submit" disabled={sending}>{t('send')}</button>
+                  <button className="btn secondary sm" type="button" onClick={() => setReporting(null)}>{t('cancel')}</button>
+                </div>
+              </form>
+            )}
           </div>
         ))}
       </div>

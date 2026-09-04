@@ -37,6 +37,8 @@ function num(name: string, fallback: number): number {
   return n;
 }
 
+import { randomBytes } from 'node:crypto';
+
 const nodeEnv = process.env.NODE_ENV ?? 'development';
 const isTest = nodeEnv === 'test';
 const isProd = nodeEnv === 'production';
@@ -44,13 +46,28 @@ const isProd = nodeEnv === 'production';
 const devDefaultDb = 'postgres://quiz:quiz_dev_password@localhost:5432/quiz_platform';
 const devDefaultTestDb = 'postgres://quiz:quiz_dev_password@localhost:5432/quiz_platform_test';
 
-const jwtSecret = process.env.JWT_SECRET ?? (isProd ? undefined : 'dev-only-secret-do-not-use-in-production');
+// Never fall back to a well-known secret: production must set JWT_SECRET, development gets a
+// random per-boot secret (sessions reset on restart), tests use a fixed value for determinism.
+const jwtSecret =
+  process.env.JWT_SECRET ??
+  (isTest ? 'test-only-secret-0123456789abcdef0123456789abcdef' : isProd ? undefined : randomBytes(48).toString('hex'));
 if (!jwtSecret) throw new Error('JWT_SECRET is required in production');
-if (isProd && jwtSecret.length < 32) throw new Error('JWT_SECRET must be at least 32 chars in production');
+if (jwtSecret.length < 32) throw new Error('JWT_SECRET must be at least 32 chars');
+if (!process.env.JWT_SECRET && !isTest) console.warn('JWT_SECRET not set: using a random per-boot secret (development only)');
+// Behind a reverse proxy/PaaS set TRUST_PROXY to the number of trusted hops (usually 1) so
+// req.ip is the real client for rate limiting. Leave unset when the API is exposed directly.
+const trustProxyRaw = process.env.TRUST_PROXY;
+const trustProxyHops = Number(trustProxyRaw);
+const trustProxy: boolean | ((address: string, hop: number) => boolean) =
+  trustProxyRaw === undefined || trustProxyRaw === '' || trustProxyRaw === 'false' ? false
+  : trustProxyRaw === 'true' ? true
+  : Number.isFinite(trustProxyHops) && trustProxyHops > 0 ? (_address, hop) => hop < trustProxyHops
+  : false;
 
 export const env = {
   nodeEnv,
   isProd,
+  trustProxy,
   isTest,
   port: num('PORT', 3001),
   host: process.env.HOST ?? '0.0.0.0',

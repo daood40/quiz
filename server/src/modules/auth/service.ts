@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { env } from '../../config/env.js';
 import { audit } from '../../core/audit.js';
-import { badRequest, conflict, forbidden, notFound, unauthorized } from '../../core/errors.js';
+import { AppError, badRequest, conflict, forbidden, notFound, unauthorized } from '../../core/errors.js';
 import { getSettings } from '../../core/settings.js';
 import { query, withTransaction } from '../../db/pool.js';
 import { generateOpaqueToken, hashToken, signAccessToken, type Role } from './tokens.js';
@@ -44,6 +44,24 @@ export interface PublicUser {
   plan: string;
   emailVerified: boolean;
   createdAt: string;
+}
+
+/** Profile view for other users: no email, plan, or verification state. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function toProfileUser(row: any) {
+  return {
+    id: row.id,
+    username: row.username,
+    displayName: row.display_name,
+    avatar: row.avatar,
+    country: row.country,
+    level: row.level,
+    xp: Number(row.xp),
+    totalPoints: Number(row.total_points),
+    currentStreak: row.current_streak,
+    longestStreak: row.longest_streak,
+    createdAt: row.created_at,
+  };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -114,8 +132,7 @@ export async function register(input: z.infer<typeof registerSchema>, ip: string
     return res.rows[0];
   });
 
-  // email verification token (delivery integrates with an email provider in prod;
-  // token is surfaced via admin tools / logs in development)
+  // email verification token (delivered by the mail adapter once configured; see docs/SECURITY.md)
   const { hash } = generateOpaqueToken();
   await query(
     `INSERT INTO email_verification_tokens (user_id, token_hash, expires_at)
@@ -128,7 +145,20 @@ export async function register(input: z.infer<typeof registerSchema>, ip: string
   return { user: toPublicUser(row), ...tokens };
 }
 
+// Per-identifier brute-force lockout (in-process; complements the IP limiter which a proxy can blur).
+const LOGIN_MAX_FAILURES = 10;
+const LOGIN_LOCK_MS = 15 * 60 * 1000;
+const loginFailures = new Map<string, { count: number; until: number }>();
+function loginKey(identifier: string): string { return identifier.trim().toLowerCase(); }
+export function _resetLoginFailures(): void { loginFailures.clear(); }
+
 export async function login(input: z.infer<typeof loginSchema>, ip: string): Promise<AuthResult> {
+  const key = loginKey(input.identifier);
+  const lock = loginFailures.get(key);
+  if (lock && lock.count >= LOGIN_MAX_FAILURES && lock.until > Date.now()) {
+    audit(null, 'auth.login_locked', 'user', key, {}, ip);
+    throw new AppError(429, 'too_many_attempts', 'Too many failed attempts; try again later');
+  }
   const { rows } = await query(
     `SELECT * FROM users WHERE (email = $1 OR username = $1) AND is_guest = false LIMIT 1`,
     [input.identifier],
@@ -137,7 +167,14 @@ export async function login(input: z.infer<typeof loginSchema>, ip: string): Pro
   // constant-ish time: hash compare even when user missing
   const hash = row?.password_hash ?? '$2a$10$invalidinvalidinvalidinvalidinvalidinvalu';
   const ok = await bcrypt.compare(input.password, hash);
-  if (!row || !ok) throw unauthorized('Invalid credentials');
+  if (!row || !ok) {
+    const cur = loginFailures.get(key);
+    const count = cur && cur.until > Date.now() ? cur.count + 1 : 1;
+    loginFailures.set(key, { count, until: Date.now() + LOGIN_LOCK_MS });
+    audit(row?.id ?? null, 'auth.login_failed', 'user', row?.id ?? key, { attempt: count }, ip);
+    throw unauthorized('Invalid credentials');
+  }
+  loginFailures.delete(key);
   if (row.status === 'banned') throw forbidden('This account is banned');
   if (row.status === 'suspended') throw forbidden('This account is suspended');
   if (row.status === 'deleted') throw unauthorized('Invalid credentials');
@@ -200,8 +237,11 @@ export async function forgotPassword(email: string): Promise<{ resetToken?: stri
     [rows[0].id, hash],
   );
   audit(rows[0].id, 'auth.password_reset_requested', 'user', rows[0].id);
-  // In production the token is emailed; returned only outside production for testing.
-  return env.isProd ? {} : { resetToken: token };
+  // No mail transport is wired yet: the token is only surfaced to the automated test suite.
+  // Outside tests the request is accepted (no account enumeration) and logged for the operator.
+  if (env.isTest) return { resetToken: token };
+  console.warn(`password reset requested for user ${rows[0].id}; configure MAIL_* to deliver tokens`);
+  return {};
 }
 
 export async function resetPassword(token: string, newPassword: string): Promise<void> {
@@ -222,6 +262,7 @@ export async function resetPassword(token: string, newPassword: string): Promise
     await client.query('UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL', [
       rows[0].user_id,
     ]);
+    await client.query('UPDATE users SET sessions_valid_after = now() WHERE id = $1', [rows[0].user_id]);
   });
   audit(rows[0].user_id, 'auth.password_reset', 'user', rows[0].user_id);
 }
@@ -268,6 +309,7 @@ export async function deleteAccount(userId: string, password: string): Promise<v
       [userId],
     );
     await client.query('UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1', [userId]);
+    await client.query('UPDATE users SET sessions_valid_after = now() WHERE id = $1', [userId]);
   });
   audit(userId, 'auth.account_deleted', 'user', userId);
 }

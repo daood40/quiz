@@ -128,6 +128,7 @@ async function getGroup(id: string, userId: string) {
   const g = rows[0];
   if (!g) throw notFound('Group not found');
   const membership = await query('SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2', [id, userId]);
+  if (!membership.rowCount && !g.is_public) throw notFound('Group not found');
   const members = await query(
     `SELECT gm.user_id, gm.role, gm.joined_at, u.username, u.display_name, u.avatar, u.level, u.total_points
      FROM group_members gm JOIN users u ON u.id = gm.user_id

@@ -167,6 +167,14 @@ export async function challengeRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/:id', { preHandler: [requireAccount] }, async (req) => {
     const { id } = req.params as { id: string };
+    if (!z.string().uuid().safeParse(id).success) throw notFound('Challenge not found');
+    const access = await query(
+      `SELECT 1 FROM challenges c
+       WHERE c.id = $1 AND (c.creator_id = $2 OR EXISTS (
+         SELECT 1 FROM challenge_participants p WHERE p.challenge_id = c.id AND p.user_id = $2))`,
+      [id, req.userId],
+    );
+    if (!access.rowCount) throw notFound('Challenge not found');
     return challengeSummary(id);
   });
 

@@ -55,3 +55,24 @@ The client never sends scores — only raw answers. The server:
 actor, entity, details, IP. `analytics_events` is behavioral and contains no
 sensitive payloads. Account deletion anonymizes personal data (soft delete)
 while preserving aggregate integrity.
+
+## Hardening added 2026-09-04 (Master Directive audit)
+
+- `JWT_SECRET` is mandatory in production and random per boot in development (never a known constant); tests use a fixed value.
+- `TRUST_PROXY` is explicit; rate limits key on the real client only when the proxy hop count is declared.
+- Password-reset / verification tokens are never returned by the API outside the test suite (no mail transport is wired yet; the request is accepted without revealing account existence).
+- Public profiles expose no email/plan (`toProfileUser`).
+- Ownership checks on challenge summaries, private groups and group leaderboards.
+- Account lockout: 10 failed logins per identifier → 15 minutes, audited as `auth.login_failed` / `auth.login_locked`.
+- Immediate session invalidation: bans, role changes, password resets and account deletion bump `users.sessions_valid_after`; older access tokens are rejected within 30 s on every instance.
+- CSP / Permissions-Policy on the SPA shell; API responses carry `x-request-id`.
+- CSV import capped at 10 000 rows inside one transaction; CSV export neutralises spreadsheet formulas.
+- Admin audit rows now carry the actor IP and the previous value (status/role/settings).
+- Retention job: stale guests (30 d, never played), analytics (180 d), audit logs (400 d).
+
+## AI gateway (SOURCE_LOCK)
+
+- The model is reached only from the server (`AI_API_KEY` never leaves it); the client calls `/api/v1/admin/ai/*` with an editor+ token.
+- The provider can only produce *drafts*: every output is validated by the question engine, de-duplicated, and stored as `pending_review` with `source = 'ai'`; approval stays human.
+- `SOURCE_LOCK = TRUE`: categories matching religion/Islam/Quran/hadith/fiqh (slug or name, AR/EN) are refused with 403 before any provider call, and the refusal is recorded (`ai_requests.status = 'blocked'`, audit `ai.blocked.source_lock`).
+- Quotas: `AI_DAILY_PER_USER` (20) and `AI_DAILY_PLATFORM` (500) per UTC day; every request (ok / error / blocked) is in `ai_requests` with token usage for cost monitoring.

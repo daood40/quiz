@@ -1,18 +1,30 @@
 # PROJECT_STATUS — حالة المشروع
 
-**آخر تحديث:** 2026-09-03 · **المرجع الملزم:** [docs/QUIZ_MASTER_DIRECTIVE_v2.md](docs/QUIZ_MASTER_DIRECTIVE_v2.md)
+**آخر تحديث:** 2026-09-04 · **المرجع الملزم:** [docs/QUIZ_MASTER_DIRECTIVE_v2.md](docs/QUIZ_MASTER_DIRECTIVE_v2.md)
 
 ## الحالة الآن
 
 | البند | الحالة |
 |---|---|
 | الكود | منصة كاملة مستوردة من `daood40/falah` (فرع quiz-platform-build): خادم Fastify + PostgreSQL، واجهة React، 80 نوع سؤال على 13 عائلة، تحكيم خادمي كامل |
-| CI | ✅ أخضر: typecheck + 91 اختبارًا (تكامل على PostgreSQL حقيقية) + بناء + `npm audit --audit-level=high` + دخان E2E (Playwright، جوال عربي + سطح مكتب إنجليزي) |
-| النشر | ✅ حي: Pages مفعّل والنشر يعمل — `https://daood40.github.io/quiz/` يتحدث تلقائيًا مع كل push. النسخة الكاملة: صورة `ghcr.io/daood40/quiz` تُبنى وتُختبر في CI + `docker-compose.yml` + `render.yaml` + `fly.toml`، وأول تشغيل تلقائي (`SEED_ON_BOOT`). الإصدار **v1.0.0** موسوم. يبقى فقط اختيار الاستضافة وربط Pages بمتغير `VITE_API_BASE` |
+| CI | ✅ أخضر: typecheck + 112 اختبارًا (تكامل على PostgreSQL حقيقية) + بناء + `npm audit --audit-level=high` + دخان E2E (Playwright، جوال عربي + سطح مكتب إنجليزي) |
+| النشر | ✅ حي: Pages مفعّل والنشر يعمل — `https://daood40.github.io/quiz/` يتحدث تلقائيًا مع كل push. النسخة الكاملة: صورة `ghcr.io/daood40/quiz` تُبنى وتُختبر في CI + `docker-compose.yml` + `render.yaml` + `fly.toml`، وأول تشغيل تلقائي (`SEED_ON_BOOT`). الإصدار **v1.1.0** موسوم. يبقى فقط اختيار الاستضافة وربط Pages بمتغير `VITE_API_BASE` |
 | الحوكمة | التوجيه v2 معتمد في `docs/`؛ القرارات السبعة في [docs/adr/](docs/adr/)؛ تحليل الفجوات في [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md) |
 | أولوية التوجيه رقم 1 (نقل الحكم للخادم) | ✅ محققة أصلًا — لا منطق تصحيح/وقت/نقاط في عميل النسخة الكاملة (ADR-001)؛ الـ Demo استثناء معتمد (ADR-006) |
 
 ## سجل الجلسات
+
+### 2026-09-04 — Master Directive: تدقيق شامل + تصليب (v1.1.0)
+- ثلاثة تدقيقات مسنودة بالسطر (أمان/API، بيانات/تشغيل، واجهة) → `docs/MASTER_PLAN.md`
+  (8 خطط + خارطة مراحل). كل النتائج العالية أُغلقت في نفس الجلسة.
+- الخادم: أسرار إلزامية، `TRUST_PROXY`، قفل الحساب، إبطال الجلسات الفوري، إغلاق IDOR،
+  CSP/request-id/redaction، الترحيل 004 (فهارس/Triggers/`job_runs`)، أقفال Advisory
+  للترحيلات والوظائف، `/ready` + `/metrics` + تنبيهات، نسخ احتياطي واستعادة مُختبران في CI،
+  استرداد واستيراد Set-based داخل معاملات.
+- الواجهة: حالات خطأ/إعادة محاولة في كل الشاشات، ترجمة كاملة للإدارة، تقسيم الحزم،
+  حماية النقر المزدوج، Labels وأسماء وصول، Hotspot بلوحة المفاتيح، Offline banner،
+  SW آمن مع إشعار تحديث، قوة كلمة المرور وتأكيدها، بلاغ بسبب.
+- بوابة AI بـ SOURCE_LOCK (`modules/ai`) معطّلة حتى ضبط المفتاح؛ 21 اختبارًا جديدًا (112).
 
 ### 2026-09-03 — الإطلاق v1.0.0
 - بروفة إطلاق كاملة محليًا على PostgreSQL 16 حقيقية: بناء إنتاجي، تشغيل

@@ -1,19 +1,27 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { IS_DEMO, get } from './api';
-import { ToastProvider } from './components';
+import { OfflineBanner, Spinner, ToastProvider } from './components';
 import { AuthProvider, ThemeProvider, useAuth, useTheme } from './ctx';
 import { I18nProvider, useI18n, type Lang } from './i18n';
-import { AdminPage } from './pages/admin';
 import { ForgotPage, LoginPage, RegisterPage } from './pages/auth';
 import { HomePage } from './pages/home';
 import { PlayPage, ReviewPage } from './pages/quiz';
 import { AchievementsPage, NotificationsPage, PublicProfilePage, SettingsPage, StatsPage } from './pages/profile';
 import { Footer, NotFoundPage, PrivacyPage, TermsPage } from './pages/legal';
-import {
-  ChallengeDetailPage, ChallengesPage, FriendsPage, GroupDetailPage, GroupsPage,
-  LeaderboardPage, MonthlyPage, TournamentDetailPage, TournamentsPage,
-} from './pages/social';
+
+// route-level code splitting: staff and social surfaces are not shipped to every visitor
+const AdminPage = lazy(() => import('./pages/admin').then((m) => ({ default: m.AdminPage })));
+const social = () => import('./pages/social');
+const LeaderboardPage = lazy(() => social().then((m) => ({ default: m.LeaderboardPage })));
+const ChallengesPage = lazy(() => social().then((m) => ({ default: m.ChallengesPage })));
+const ChallengeDetailPage = lazy(() => social().then((m) => ({ default: m.ChallengeDetailPage })));
+const MonthlyPage = lazy(() => social().then((m) => ({ default: m.MonthlyPage })));
+const FriendsPage = lazy(() => social().then((m) => ({ default: m.FriendsPage })));
+const GroupsPage = lazy(() => social().then((m) => ({ default: m.GroupsPage })));
+const GroupDetailPage = lazy(() => social().then((m) => ({ default: m.GroupDetailPage })));
+const TournamentsPage = lazy(() => social().then((m) => ({ default: m.TournamentsPage })));
+const TournamentDetailPage = lazy(() => social().then((m) => ({ default: m.TournamentDetailPage })));
 
 const PRIMARY_TABS = new Set(['/', '/play', '/leaderboard', '/stats', '/achievements']);
 
@@ -43,7 +51,7 @@ function TopBar() {
   return (
     <header className="topbar">
       <Link to="/" className="brand">🧠 <span>{t('appName')}</span></Link>
-      <nav aria-label="main">
+      <nav aria-label={t('home')}>
         {links.map(([to, label]) => (
           <NavLink
             key={to}
@@ -86,7 +94,7 @@ function TabBar() {
     ['/achievements', '🏅', t('achievements')],
   ];
   return (
-    <nav className="tabbar" aria-label="primary">
+    <nav className="tabbar" aria-label={t('play')}>
       {tabs.map(([to, icon, label]) => (
         <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => (isActive ? 'active' : '')}>
           <span className="ico" aria-hidden="true">{icon}</span>
@@ -104,6 +112,24 @@ function Protected({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/** Service-worker update prompt (main.tsx dispatches `sw:update` when a new build is waiting). */
+function UpdateBanner() {
+  const { t } = useI18n();
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const on = () => setReady(true);
+    window.addEventListener('sw:update', on);
+    return () => window.removeEventListener('sw:update', on);
+  }, []);
+  if (!ready) return null;
+  return (
+    <div className="banner info update-banner" role="status">
+      <span>🆕 {t('updateAvailable')}</span>
+      <button className="btn sm" onClick={() => window.dispatchEvent(new Event('sw:reload'))}>{t('reload')}</button>
+    </div>
+  );
+}
+
 function Shell() {
   const { user } = useAuth();
   const { t } = useI18n();
@@ -111,6 +137,8 @@ function Shell() {
     <div className="app-shell">
       <a href="#main" className="skip-link">{t('skipToContent')}</a>
       <TopBar />
+      <OfflineBanner />
+      <UpdateBanner />
       {IS_DEMO && user && (
         <div className="banner info" style={{ borderRadius: 0, textAlign: 'center', fontSize: 13 }}>
           🧪 {t('demoBanner')}{' '}
@@ -118,6 +146,7 @@ function Shell() {
         </div>
       )}
       <main className="main" id="main">
+        <Suspense fallback={<div className="center" style={{ padding: 40 }}><Spinner /></div>}>
         <Routes>
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -144,6 +173,7 @@ function Shell() {
           <Route path="/terms" element={<TermsPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        </Suspense>
         <Footer />
       </main>
       <TabBar />

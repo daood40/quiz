@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { badRequest, notFound } from '../../core/errors.js';
 import { query } from '../../db/pool.js';
 import { requireAuth } from '../../plugins/auth.js';
-import { toPublicUser } from '../auth/service.js';
+import { toPublicUser, toProfileUser } from '../auth/service.js';
 
 export async function userRoutes(app: FastifyInstance): Promise<void> {
   app.get('/me', { preHandler: [requireAuth] }, async (req) => {
@@ -63,7 +63,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       [row.total_points],
     );
     return {
-      user: toPublicUser(row),
+      user: toProfileUser(row),
       stats: {
         quizzesCompleted: Number(row.quizzes_completed ?? 0),
         questionsAnswered: answered,

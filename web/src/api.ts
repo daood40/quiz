@@ -63,6 +63,8 @@ interface RequestOpts {
   method?: string;
   body?: unknown;
   retries?: number;
+  /** return the response body as a Blob (file downloads) */
+  raw?: boolean;
 }
 
 export async function api<T = unknown>(path: string, opts: RequestOpts = {}): Promise<T> {
@@ -86,7 +88,8 @@ export async function api<T = unknown>(path: string, opts: RequestOpts = {}): Pr
     });
 
   let res: Response;
-  const maxRetries = opts.retries ?? 2;
+  const method = (opts.method ?? 'GET').toUpperCase();
+  const maxRetries = opts.retries ?? (method === 'GET' || method === 'HEAD' ? 2 : 0);
   let attempt = 0;
   // network-level retry with backoff (transient failures / flaky connections)
   for (;;) {
@@ -123,6 +126,7 @@ export async function api<T = unknown>(path: string, opts: RequestOpts = {}): Pr
       payload.error?.details,
     );
   }
+  if (opts.raw) return (await res.blob()) as T;
   const text = await res.text();
   return (text ? JSON.parse(text) : null) as T;
 }

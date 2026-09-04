@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { audit } from '../../core/audit.js';
 import { badRequest } from '../../core/errors.js';
-import { query } from '../../db/pool.js';
+import { query, withTransaction } from '../../db/pool.js';
 import { requireRole } from '../../plugins/auth.js';
 import { computeContentHash, questionInputSchema, validateQuestionOrThrow } from '../questions/service.js';
 
@@ -41,7 +41,9 @@ export function parseCsv(text: string): string[][] {
 
 export function toCsv(rows: unknown[][]): string {
   const escape = (v: unknown): string => {
-    const s = v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+    let s = v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+    // neutralise spreadsheet formula injection (=, +, -, @ and tab/CR prefixes)
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
     return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   // BOM so Excel opens UTF-8 (Arabic) correctly
@@ -194,6 +196,7 @@ export async function importExportRoutes(app: FastifyInstance): Promise<void> {
     } else {
       const rows = parseCsv(data);
       if (rows.length < 2) throw badRequest('CSV must contain a header row and at least one data row');
+      if (rows.length > 10001) throw badRequest('Import chunk limited to 10000 questions');
       const header = rows[0].map((h) => h.trim().toLowerCase());
       rows.slice(1).forEach((row, i) => {
         const { input, errors: rowErrors } = csvRowToInput(header, row, i + 2, categoryMap);
@@ -216,14 +219,22 @@ export async function importExportRoutes(app: FastifyInstance): Promise<void> {
 
     let imported = 0;
     let duplicates = 0;
-    for (const input of inputs) {
-      const hash = computeContentHash(input.type, input.content, input.correctAnswer);
-      const dupe = await query(`SELECT 1 FROM questions WHERE content_hash = $1 AND status <> 'archived' LIMIT 1`, [hash]);
-      if (dupe.rowCount) {
+    const hashes = inputs.map((input) => computeContentHash(input.type, input.content, input.correctAnswer));
+    const existing = await query<{ content_hash: string }>(
+      `SELECT content_hash FROM questions WHERE content_hash = ANY($1::text[]) AND status <> 'archived'`,
+      [hashes],
+    );
+    const seen = new Set(existing.rows.map((r) => r.content_hash));
+    // whole chunk commits or rolls back together: no half-imported banks
+    await withTransaction(async (client) => {
+    for (const [idx, input] of inputs.entries()) {
+      const hash = hashes[idx];
+      if (seen.has(hash)) {
         duplicates++;
         continue;
       }
-      const { rows } = await query(
+      seen.add(hash);
+      const { rows } = await client.query(
         `INSERT INTO questions (type, category_id, subcategory_id, difficulty, language, content, correct_answer,
            configuration, points, time_limit_sec, explanation, tags, source, source_url, source_reference,
            status, content_hash, created_by)
@@ -235,10 +246,11 @@ export async function importExportRoutes(app: FastifyInstance): Promise<void> {
           input.source, input.sourceUrl, input.sourceReference, status, hash, req.userId,
         ],
       );
-      await query('INSERT INTO question_stats (question_id) VALUES ($1) ON CONFLICT DO NOTHING', [rows[0].id]);
+      await client.query('INSERT INTO question_stats (question_id) VALUES ($1) ON CONFLICT DO NOTHING', [rows[0].id]);
       imported++;
     }
-    audit(req.userId, 'question.imported', 'question', '', { imported, duplicates, errors: errors.length });
+    });
+    audit(req.userId, 'question.imported', 'question', '', { imported, duplicates, errors: errors.length }, req.ip);
     return { imported, duplicates, errors: errors.slice(0, 200), totalErrors: errors.length };
   });
 

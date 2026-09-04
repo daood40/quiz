@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { badRequest } from '../../core/errors.js';
+import { badRequest, forbidden, unauthorized } from '../../core/errors.js';
 import { getSettings } from '../../core/settings.js';
 import { query } from '../../db/pool.js';
 import { requireAuth } from '../../plugins/auth.js';
@@ -44,16 +44,20 @@ export async function fetchLeaderboard(
   );
   let entries: LeaderboardEntry[];
   let cachedAt: string | null = null;
+  // snapshots are always stored at the platform maximum so the cache key stays (scope, key);
+  // callers get a slice — a small request must never poison the board for everyone else
+  const snapshotSize = Math.max(settings.leaderboardSize, 100, limit);
   if (snap.rows[0]) {
-    entries = snap.rows[0].entries as LeaderboardEntry[];
+    entries = (snap.rows[0].entries as LeaderboardEntry[]).slice(0, limit);
     cachedAt = snap.rows[0].computed_at;
   } else {
-    entries = await computeLeaderboard(scope, scopeKey, limit);
+    const full = await computeLeaderboard(scope, scopeKey, snapshotSize);
     await query(
       `INSERT INTO leaderboard_snapshots (scope, scope_key, entries) VALUES ($1,$2,$3)
        ON CONFLICT (scope, scope_key) DO UPDATE SET entries = $3, computed_at = now()`,
-      [scope, scopeKey, JSON.stringify(entries)],
+      [scope, scopeKey, JSON.stringify(full)],
     );
+    entries = full.slice(0, limit);
   }
 
   let me: LeaderboardEntry | null = null;
@@ -161,6 +165,13 @@ export async function leaderboardRoutes(app: FastifyInstance): Promise<void> {
 
     if (scope === 'group') {
       if (!key) throw badRequest('Group leaderboard requires key=<groupId>');
+      if (!req.userId) throw unauthorized('Sign in to view group leaderboards');
+      const member = await query(
+        `SELECT 1 FROM group_members gm JOIN groups g ON g.id = gm.group_id
+         WHERE gm.group_id = $1 AND (gm.user_id = $2 OR g.is_public)`,
+        [key, req.userId],
+      );
+      if (!member.rowCount) throw forbidden('Not a member of this group');
       const { rows } = await query(
         `SELECT gm.user_id, COALESCE(ls.points, 0) AS points, COALESCE(ls.correct, 0) AS correct,
                 COALESCE(ls.total_time_ms, 0) AS total_time_ms,
