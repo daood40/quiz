@@ -6,6 +6,9 @@ set -euo pipefail
 : "${DATABASE_URL:?DATABASE_URL is required}"
 file="${1:?usage: restore.sh <dump-file>}"
 [ -f "$file.sha256" ] && (cd "$(dirname "$file")" && sha256sum -c "$(basename "$file").sha256")
+case "$file" in
+  *.gpg) plain="${file%.gpg}"; gpg --batch --yes --decrypt --output "$plain" "$file"; file="$plain" ;;
+esac
 pg_restore --no-owner --no-privileges --clean --if-exists --dbname="$DATABASE_URL" "$file"
 psql "$DATABASE_URL" -Atc "
   SELECT 'schema_migrations=' || count(*) FROM schema_migrations

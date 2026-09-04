@@ -43,13 +43,28 @@ for (const [name, viewport, arabic] of [['mobile-ar', { width: 375, height: 720 
   await page.getByRole('button', { name: arabic ? /ابدأ الاختبار/ : /Start Quiz/ }).first().click();
   await page.waitForTimeout(900);
   check((await page.locator('.quiz-question').count()) > 0, `${name}: a question renders`);
-  const opt = page.locator('.option').first();
-  if (await opt.count()) {
-    await opt.click();
-    await page.getByRole('button', { name: arabic ? /إرسال/ : /Submit/ }).first().click();
-    await page.waitForTimeout(700);
-    check((await page.locator('.feedback').count()) > 0, `${name}: practice feedback appears after answering`);
+  // the bank is shuffled: skip non-choice questions until one with options shows up, then answer it
+  let answered = false;
+  for (let i = 0; i < 6 && !answered; i++) {
+    const opt = page.locator('.option').first();
+    if (await opt.count()) {
+      await opt.click();
+      const submit = page.getByRole('button', { name: arabic ? /^إرسال/ : /^Submit/ }).first();
+      await submit.waitFor({ state: 'visible', timeout: 3000 });
+      if (await submit.isEnabled()) {
+        await submit.click();
+        await page.locator('.feedback').first().waitFor({ state: 'visible', timeout: 8000 }).catch(() => undefined);
+        answered = (await page.locator('.feedback').count()) > 0;
+        break;
+      }
+      // composite / multi-part question: one option is not a full answer — move on
+    }
+    const skip = page.getByRole('button', { name: arabic ? /^تخط/ : /^Skip/ }).first();
+    if (!(await skip.count())) break;
+    await skip.click();
+    await page.waitForTimeout(600);
   }
+  check(answered, `${name}: practice feedback appears after answering`);
   check(errors.length === 0, `${name}: no JS/console errors${errors.length ? ' — ' + errors.join(' | ') : ''}`);
   await page.close();
 }

@@ -8,7 +8,7 @@ import { ForgotPage, LoginPage, RegisterPage, VerifyEmailPage } from './pages/au
 import { HomePage } from './pages/home';
 import { PlayPage, ReviewPage } from './pages/quiz';
 import { AchievementsPage, NotificationsPage, PublicProfilePage, SettingsPage, StatsPage } from './pages/profile';
-import { Footer, NotFoundPage, PrivacyPage, TermsPage } from './pages/legal';
+import { Footer, HelpPage, NotFoundPage, PrivacyPage, TermsPage } from './pages/legal';
 
 // route-level code splitting: staff and social surfaces are not shipped to every visitor
 const AdminPage = lazy(() => import('./pages/admin').then((m) => ({ default: m.AdminPage })));
@@ -172,6 +172,7 @@ function Shell() {
           <Route path="/admin/*" element={<Protected><AdminPage /></Protected>} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
+          <Route path="/help" element={<HelpPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
         </Suspense>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { del, get, patch, post } from '../api';
+import { api, del, get, patch, post } from '../api';
 import { Avatar, EmptyState, ErrorState, Field, Spinner, StatBox, ToggleChip, fmtMs, useAction, useAsync, useToast } from '../components';
 import { useAuth } from '../ctx';
 import { useI18n, type Lang } from '../i18n';
@@ -203,6 +203,14 @@ export function SettingsPage() {
     setPw({ current: '', next: '', confirm: '' });
     toast(`✓ ${t('saved')}`);
   });
+  const [downloadData, downloading] = useAction(async () => {
+    const blob = await api<Blob>('/users/me/export', { raw: true });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'my-quiz-data.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
   const [deleteAccount, deleting] = useAction(async () => {
     if (!window.confirm(`${t('deleteAccount')}?`)) return;
     await del('/auth/account', { password: delPw });
@@ -278,6 +286,7 @@ export function SettingsPage() {
       <div className="card">
         <h2 className="error-text">{t('deleteAccount')}</h2>
         <form className="stack" onSubmit={(e) => { e.preventDefault(); void deleteAccount(); }}>
+          {!user.isGuest && <button type="button" className="btn secondary" onClick={() => void downloadData()} disabled={downloading}>⬇ {t('downloadData')}</button>}
           {!user.isGuest && <Field label={t('password')}>{(id) => <input id={id} type="password" autoComplete="current-password" value={delPw} onChange={(e) => setDelPw(e.target.value)} required />}</Field>}
           <button className="btn danger" type="submit" disabled={deleting || (!user.isGuest && !delPw)}>{t('deleteAccount')}</button>
         </form>

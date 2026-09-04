@@ -81,8 +81,55 @@ export function Footer() {
       <Link to="/privacy">{t('privacy')}</Link>
       <span aria-hidden="true">·</span>
       <Link to="/terms">{t('terms')}</Link>
+      <Link to="/help">{t('help')}</Link>
       <span aria-hidden="true">·</span>
       <a href="https://github.com/daood40/quiz" target="_blank" rel="noreferrer">GitHub</a>
     </footer>
+  );
+}
+
+
+const FAQ: Array<{ q: { en: string; ar: string }; a: { en: string; ar: string } }> = [
+  { q: { en: 'How are points calculated?', ar: 'كيف تُحسب النقاط؟' },
+    a: { en: 'Only ranked modes (timed, speed, survival, knowledge, daily, challenges) count. Base points depend on difficulty, plus a speed bonus and an in-round streak bonus. Practice never affects rankings.',
+         ar: 'تُحتسب الأنماط التنافسية فقط (موقّت، سرعة، بقاء، معرفة، اليومي، التحديات). النقاط الأساسية بحسب الصعوبة، مع مكافأة سرعة ومكافأة تتابع داخل الجولة. التدريب لا يؤثر على الترتيب.' } },
+  { q: { en: 'Why did a question I answered correctly count as wrong?', ar: 'لماذا حُسبت إجابتي الصحيحة خاطئة؟' },
+    a: { en: 'Report it from the review screen (⚑). If the answer key is confirmed wrong, the question is archived and the points of everyone affected this season are refunded automatically.',
+         ar: 'بلّغ عنها من شاشة المراجعة (⚑). إن ثبت خطأ الإجابة النموذجية تُؤرشف ويُعاد تلقائيًا نقاط كل المتضررين في هذا الموسم.' } },
+  { q: { en: 'Can I play without an account?', ar: 'هل ألعب بلا حساب؟' },
+    a: { en: 'Yes, as a guest. Guest progress is temporary; register to keep your points, streaks and achievements.',
+         ar: 'نعم كزائر. تقدّم الزائر مؤقت؛ سجّل حسابًا لتحفظ نقاطك وسلاسلك وإنجازاتك.' } },
+  { q: { en: 'How do I delete my account or download my data?', ar: 'كيف أحذف حسابي أو أحمّل بياناتي؟' },
+    a: { en: 'Settings → Danger zone deletes the account (personal data is anonymised). Settings → Download my data gives you a JSON export.',
+         ar: 'الإعدادات → منطقة الخطر لحذف الحساب (تُجهَّل البيانات الشخصية). الإعدادات → تنزيل بياناتي يعطيك ملف JSON.' } },
+  { q: { en: 'Does it work offline?', ar: 'هل يعمل دون اتصال؟' },
+    a: { en: 'The demo plays fully offline once installed. The full app needs a connection because the server referees every answer; the timer pauses while you are offline.',
+         ar: 'النسخة التجريبية تعمل دون اتصال بعد تثبيتها. التطبيق الكامل يحتاج اتصالًا لأن الخادم يحكّم كل إجابة؛ ويتوقف العدّاد أثناء الانقطاع.' } },
+];
+
+export function HelpPage() {
+  const { t, lang } = useI18n();
+  const support = import.meta.env.VITE_SUPPORT_EMAIL as string | undefined;
+  return (
+    <div className="page narrow">
+      <h1>❓ {t('help')}</h1>
+      <div className="card">
+        {FAQ.map((f, i) => (
+          <details key={i} style={{ padding: '8px 0', borderBottom: i < FAQ.length - 1 ? '1px solid var(--border)' : 'none' }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 700 }}>{f.q[lang]}</summary>
+            <p className="muted" style={{ margin: '6px 0 0' }}>{f.a[lang]}</p>
+          </details>
+        ))}
+      </div>
+      <div className="card">
+        <h2>{t('contactSupport')}</h2>
+        <p className="muted">{t('contactHint')}</p>
+        <div className="row">
+          {support && <a className="btn" href={`mailto:${support}?subject=${encodeURIComponent('Quiz Platform')}`}>✉️ {support}</a>}
+          <a className="btn secondary" href="https://github.com/daood40/quiz/issues" target="_blank" rel="noreferrer">🐞 {t('reportBug')}</a>
+          <a className="btn secondary" href={`${(import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/api\/v1$/, '') ?? ''}/ready`} target="_blank" rel="noreferrer">📡 {t('systemStatus')}</a>
+        </div>
+      </div>
+    </div>
   );
 }

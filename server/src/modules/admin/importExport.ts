@@ -12,7 +12,7 @@ export function parseCsv(text: string): string[][] {
   let row: string[] = [];
   let field = '';
   let inQuotes = false;
-  const src = text.replace(/^﻿/, '');
+  const src = text.replace(/^\uFEFF/, '');
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
     if (inQuotes) {
@@ -47,7 +47,7 @@ export function toCsv(rows: unknown[][]): string {
     return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   // BOM so Excel opens UTF-8 (Arabic) correctly
-  return '﻿' + rows.map((r) => r.map(escape).join(',')).join('\r\n');
+  return '\uFEFF' + rows.map((r) => r.map(escape).join(',')).join('\r\n');
 }
 
 const CSV_COLUMNS = [

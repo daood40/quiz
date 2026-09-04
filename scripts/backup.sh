@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Nightly logical backup: pg_dump custom format + retention. Works locally, in the compose sidecar, or in cron.
 #   DATABASE_URL=postgres://... BACKUP_DIR=/backups RETENTION_DAYS=14 ./scripts/backup.sh
+#   Optional encryption at rest: BACKUP_GPG_RECIPIENT=<key id or email> (dump becomes .dump.gpg; restore with gpg --decrypt)
 #   Optional off-site copy: BACKUP_S3_URI=s3://bucket/quiz (needs aws cli) or BACKUP_COPY_CMD='rclone copy {file} remote:quiz'
 set -euo pipefail
 : "${DATABASE_URL:?DATABASE_URL is required}"
@@ -10,6 +11,10 @@ mkdir -p "$BACKUP_DIR"
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 file="$BACKUP_DIR/quiz-$stamp.dump"
 pg_dump --format=custom --compress=6 --no-owner --no-privileges --dbname="$DATABASE_URL" --file="$file"
+if [ -n "${BACKUP_GPG_RECIPIENT:-}" ]; then
+  gpg --batch --yes --trust-model always --recipient "$BACKUP_GPG_RECIPIENT" --encrypt "$file" && rm -f "$file"
+  file="$file.gpg"
+fi
 # checksum names the bare file so restore.sh can verify it from inside BACKUP_DIR
 (cd "$BACKUP_DIR" && sha256sum "$(basename "$file")" > "$(basename "$file").sha256")
 echo "backup written: $file ($(du -h "$file" | cut -f1))"

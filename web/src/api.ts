@@ -96,7 +96,7 @@ export async function api<T = unknown>(path: string, opts: RequestOpts = {}): Pr
     try {
       res = await doFetch();
       break;
-    } catch (err) {
+    } catch {
       if (attempt >= maxRetries) throw new ApiError(0, 'network', 'Network error — check your connection');
       await new Promise((r) => setTimeout(r, 800 * 2 ** attempt));
       attempt++;

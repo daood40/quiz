@@ -230,3 +230,27 @@ describe('hardening: data integrity and operations', () => {
     expect(csv).toContain(",plain,");
   });
 });
+
+describe('privacy: data export', () => {
+  beforeEach(resetDb);
+  it('returns everything stored about the caller and audits the export', async () => {
+    const u = await registerUser('exporter');
+    const res = await api('/users/me/export', { token: u.token });
+    expect(res.status).toBe(200);
+    const body = res.body as { user: { email: string; username: string }; attempts: unknown[]; stats: unknown };
+    expect(body.user.username).toBe('exporter');
+    expect(body.user.email).toBe('exporter@test.com');
+    expect(Array.isArray(body.attempts)).toBe(true);
+    let audited = 0;
+    for (let i = 0; i < 20 && audited === 0; i++) {
+      await new Promise((r) => setTimeout(r, 50)); // audit writes are fire-and-forget
+      audited = (await query(`SELECT 1 FROM audit_logs WHERE actor_id = $1 AND action = 'user.data_export'`, [u.id])).rowCount ?? 0;
+    }
+    expect(audited).toBe(1);
+  });
+  it('is not available to guests', async () => {
+    const g = await api('/auth/guest', { method: 'POST', body: {} });
+    const token = (g.body as { accessToken: string }).accessToken;
+    expect((await api('/users/me/export', { token })).status).toBe(403);
+  });
+});

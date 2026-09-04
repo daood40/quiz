@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { audit } from '../../core/audit.js';
 import { badRequest, notFound } from '../../core/errors.js';
 import { query } from '../../db/pool.js';
-import { requireAuth } from '../../plugins/auth.js';
+import { requireAccount, requireAuth } from '../../plugins/auth.js';
 import { toPublicUser, toProfileUser } from '../auth/service.js';
 
 export async function userRoutes(app: FastifyInstance): Promise<void> {
@@ -35,6 +36,42 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       [req.userId, patch.displayName, patch.avatar, patch.language, patch.country, patch.timezone],
     );
     return { user: toPublicUser(rows[0]) };
+  });
+
+  /** Data export (privacy): everything the platform stores about the caller, as one JSON document. */
+  app.get('/me/export', { preHandler: [requireAccount] }, async (req, reply) => {
+    const uid = req.userId!;
+    const [user, stats, attempts, achievements, bookmarks, friends, notifications, activityLog] = await Promise.all([
+      query(`SELECT id, email, username, display_name, avatar, language, country, role, plan, xp, level, total_points,
+                    current_streak, longest_streak, email_verified_at, created_at, updated_at FROM users WHERE id = $1`, [uid]),
+      query('SELECT * FROM user_stats WHERE user_id = $1', [uid]),
+      query(`SELECT a.id, a.mode, a.context_type, a.status, a.score, a.max_score, a.correct_count, a.started_at, a.submitted_at,
+                    a.server_duration_ms,
+                    (SELECT json_agg(json_build_object('questionId', aa.question_id, 'answer', aa.answer, 'outcome', aa.outcome,
+                                                       'score', aa.score, 'answeredAt', aa.answered_at) ORDER BY aa.answered_at)
+                       FROM attempt_answers aa WHERE aa.attempt_id = a.id) AS answers
+             FROM attempts a WHERE a.user_id = $1 ORDER BY a.started_at DESC LIMIT 5000`, [uid]),
+      query(`SELECT a.slug, ua.earned_at FROM user_achievements ua JOIN achievements a ON a.id = ua.achievement_id WHERE ua.user_id = $1`, [uid]),
+      query('SELECT question_id, created_at FROM question_bookmarks WHERE user_id = $1', [uid]),
+      query(`SELECT CASE WHEN user_id = $1 THEN friend_id ELSE user_id END AS friend_id, status, created_at
+             FROM friendships WHERE user_id = $1 OR friend_id = $1`, [uid]),
+      query('SELECT kind, title, body, read_at, created_at FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1000', [uid]),
+      query('SELECT action, entity, created_at FROM audit_logs WHERE actor_id = $1 ORDER BY created_at DESC LIMIT 1000', [uid]),
+    ]);
+    audit(uid, 'user.data_export', 'user', uid, {}, req.ip);
+    reply.header('content-disposition', `attachment; filename="quiz-data-${uid.slice(0, 8)}.json"`);
+    return {
+      exportedAt: new Date().toISOString(),
+      format: 'quiz-platform/1',
+      user: user.rows[0],
+      stats: stats.rows[0] ?? null,
+      attempts: attempts.rows,
+      achievements: achievements.rows,
+      bookmarks: bookmarks.rows,
+      friends: friends.rows,
+      notifications: notifications.rows,
+      activity: activityLog.rows,
+    };
   });
 
   /** Public profile with headline stats + achievements. */

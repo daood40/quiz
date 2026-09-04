@@ -343,6 +343,12 @@ const dict = {
   verifyInvalid: { en: 'This verification link is invalid or expired.', ar: 'رابط التأكيد غير صالح أو منتهٍ.' },
   resendVerification: { en: 'Resend verification email', ar: 'إعادة إرسال رسالة التأكيد' },
   emailNotVerified: { en: 'Email not verified', ar: 'البريد غير مؤكد' },
+  help: { en: 'Help & FAQ', ar: 'المساعدة والأسئلة الشائعة' },
+  contactSupport: { en: 'Contact support', ar: 'تواصل مع الدعم' },
+  contactHint: { en: 'Found a problem or have a suggestion? We answer within two working days.', ar: 'وجدت مشكلة أو لديك اقتراح؟ نرد خلال يومي عمل.' },
+  reportBug: { en: 'Report a bug', ar: 'الإبلاغ عن خلل' },
+  systemStatus: { en: 'System status', ar: 'حالة النظام' },
+  downloadData: { en: 'Download my data', ar: 'تنزيل بياناتي' },
 } as const;
 
 export type TKey = keyof typeof dict;

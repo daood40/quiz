@@ -13,9 +13,16 @@
     "test": "npm test --workspace=server",
     "migrate": "npm run migrate --workspace=server",
     "seed": "npm run seed --workspace=server",
-    "lint": "npm run lint --workspace=server && npm run lint --workspace=web"
+    "lint": "npm run lint --workspace=server && npm run lint --workspace=web && npm run lint:eslint",
+    "lint:eslint": "eslint server/src web/src server/test"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.10.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "typescript-eslint": "^8.69.0"
   }
 }

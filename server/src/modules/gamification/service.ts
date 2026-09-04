@@ -1,5 +1,4 @@
 import type { PoolClient } from 'pg';
-import { query } from '../../db/pool.js';
 import type { AppSettings } from '../../core/settings.js';
 
 /** XP → level curve: cumulative XP needed for level L is xpPerLevel * T(L-1). */

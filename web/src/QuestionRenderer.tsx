@@ -457,7 +457,6 @@ function CrosswordBoard({ question, onSubmit, disabled, slots }: Props & { slots
 }
 
 function GridPuzzle({ question, onSubmit, disabled }: Props) {
-  const { pick } = useI18n();
   const slots = arr(question.content.slots).concat(arr(question.content.cells));
   const positioned = slots.length > 0 && slots.every(
     (s) => typeof s.row === 'number' && typeof s.col === 'number' &&
@@ -474,6 +473,11 @@ function GridPuzzle({ question, onSubmit, disabled }: Props) {
     return <CrosswordBoard question={question} spec={undefined} onSubmit={onSubmit} disabled={disabled} slots={xw} />;
   }
   const gridRows = Array.isArray(question.content.grid) ? (question.content.grid as string[]) : [];
+  return <GridEntry question={question} spec={undefined} onSubmit={onSubmit} disabled={disabled} gridRows={gridRows} slots={slots} />;
+}
+
+function GridEntry({ question: _question, onSubmit, disabled, gridRows, slots }: Props & { gridRows: string[]; slots: Array<Record<string, unknown>> }) {
+  const { pick } = useI18n();
   const [entries, setEntries] = useState<Record<string, string>>({});
   const [words, setWords] = useState('');
   const keyed = slots.length > 0;
@@ -503,7 +507,7 @@ function GridPuzzle({ question, onSubmit, disabled }: Props) {
   );
 }
 
-function Flashcard({ question, onSubmit, disabled }: Props) {
+function Flashcard({ question: _question, onSubmit, disabled }: Props) {
   const { t } = useI18n();
   const [revealed, setRevealed] = useState(false);
   return (
@@ -531,7 +535,7 @@ function Submission({ onSubmit, disabled }: Props) {
   );
 }
 
-function Composite({ question, spec, onSubmit, disabled, specs }: Props & { specs: Map<string, TypeSpec> }) {
+function Composite({ question, spec: _spec, onSubmit, disabled, specs }: Props & { specs: Map<string, TypeSpec> }) {
   const { t, pick } = useI18n();
   const parts = arr(question.content.parts);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});

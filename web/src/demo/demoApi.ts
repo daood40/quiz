@@ -102,7 +102,7 @@ function load(): DemoState {
     dailyDone: null,
   };
 }
-let state = load();
+const state = load();
 function save(): void {
   try {
     state.attempts = state.attempts.slice(-20);

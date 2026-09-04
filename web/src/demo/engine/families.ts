@@ -79,7 +79,7 @@ function acceptedAnswers(q: EngineQuestion): string[] {
   return [];
 }
 function stripAnswers(content: Record<string, unknown>): Record<string, unknown> {
-  const { correct, correctAnswer, answer, answers, solution, ...rest } = content;
+  const { correct: _c, correctAnswer: _ca, answer: _a, answers: _as, solution: _s, ...rest } = content;
   return rest;
 }
 

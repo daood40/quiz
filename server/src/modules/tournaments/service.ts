@@ -256,7 +256,7 @@ async function tournamentDetail(id: string, userId: string | null) {
 }
 
 export async function tournamentRoutes(app: FastifyInstance): Promise<void> {
-  app.get('/', async (req) => {
+  app.get('/', async (_req) => {
     const { rows } = await query(
       `SELECT t.id, t.title, t.kind, t.status, t.max_players, t.starts_at, t.ends_at,
               (SELECT count(*) FROM tournament_participants tp WHERE tp.tournament_id = t.id) AS participant_count

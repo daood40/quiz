@@ -75,7 +75,7 @@ interface ChallengeRow { id: string; code: string; title: string; status: string
 export function ChallengesPage() {
   const { t, pick } = useI18n();
   const nav = useNavigate();
-  const toast = useToast();
+
   const statusLabel = useStatusLabel();
   const { data: list, error: listError, reload: load } = useAsync(() => get<{ challenges: ChallengeRow[] }>('/challenges').then((r) => r.challenges), []);
   const [showCreate, setShowCreate] = useState(false);
@@ -165,7 +165,7 @@ interface ChallengeDetail {
 export function ChallengeDetailPage() {
   const { t } = useI18n();
   const { id } = useParams();
-  const toast = useToast();
+
   const { user } = useAuth();
   const statusLabel = useStatusLabel();
   const { data, error, reload: load } = useAsync(() => get<ChallengeDetail>(`/challenges/${id}`), [id]);
@@ -223,7 +223,7 @@ export function ChallengeDetailPage() {
 
 export function MonthlyPage() {
   const { t, pick } = useI18n();
-  const toast = useToast();
+
   const { user } = useAuth();
   const statusLabel = useStatusLabel();
   type Monthly = {
@@ -280,7 +280,6 @@ interface GroupRow { id: string; name: string; description: string; code?: strin
 export function GroupsPage() {
   const { t } = useI18n();
   const nav = useNavigate();
-  const toast = useToast();
   const { data, error, reload } = useAsync(() => get<{ myGroups: GroupRow[]; discover: GroupRow[] }>('/groups'), []);
   const [name, setName] = useState('');
   const [joinCode, setJoinCode] = useState('');

@@ -35,12 +35,20 @@ Master Directive hardening release: audited end-to-end (security, data layer, op
 - Error webhook payload compatible with Discord, Slack and Telegram relays; `TRUST_PROXY=1` preset for Render/Fly.
 - `docs/LAUNCH.md`: step-by-step Arabic launch guide (Render blueprint, Pages switch, domain, mail, alerts, content, pre-launch checklist).
 
+### Launch gates
+- `docs/GATES.md`: evidence for every gate of the 46-section launch checklist (counts, commands, remaining owner-only items).
+- Migration checksums: a migration file edited after being applied aborts boot with a clear message.
+- Privacy data export (`GET /users/me/export`, "Download my data" on the profile) with audit trail.
+- Help & support page (`/help`): FAQ, support mail, bug reports, system status link.
+- Optional GPG-encrypted backups (`BACKUP_GPG_RECIPIENT`); restore verifies checksum and decrypts.
+- ESLint (typescript-eslint + react-hooks) in `npm run lint` and CI; E2E smoke skips non-choice questions instead of flaking.
+
 ### AI gateway (SOURCE_LOCK)
 - `modules/ai`: provider abstraction (Anthropic SDK with structured output, or `mock`), disabled by default.
 - Drafts are validated by the engine, de-duplicated and filed as `pending_review`; religious categories are refused before any provider call; per-user and platform daily quotas with a token ledger.
 
 ### Tests
-- 24 new tests (115 total): ownership, lockout, session invalidation, rate limiting over HTTP, readiness, job locking, archive-on-delete, cache sizing, CSV hardening, AI gateway.
+- 28 new tests (119 total): ownership, lockout, session invalidation, rate limiting over HTTP, readiness, job locking, archive-on-delete, cache sizing, CSV hardening, AI gateway, migration checksums, data export.
 
 ## [1.0.0] - 2026-09-03
 

@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg';
 import { audit, trackEvent } from '../../core/audit.js';
 import { AppError, badRequest, conflict, forbidden, notFound } from '../../core/errors.js';
-import { getSettings, type AppSettings } from '../../core/settings.js';
+import { getSettings } from '../../core/settings.js';
 import { query, withTransaction } from '../../db/pool.js';
 import { awardXp, evaluateAchievements, touchStreak, localDate } from '../gamification/service.js';
 import { registry } from '../questions/engine/registry.js';
