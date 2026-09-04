@@ -55,6 +55,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true };
   });
 
+  app.post('/resend-verification', { preHandler: [requireAccount, authLimiter] }, async (req) => {
+    return { sent: await svc.resendVerification(req.userId!) };
+  });
+
   app.post('/verify-email', async (req) => {
     const body = parse(z.object({ token: z.string().min(10) }), req.body);
     await svc.verifyEmail(body.token);

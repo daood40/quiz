@@ -13,6 +13,7 @@ import { computeContentHash } from '../modules/questions/service.js';
 import { registry } from '../modules/questions/engine/registry.js';
 import { AR_QUESTIONS } from './seed_ar.js';
 
+const RELIGION_SLUGS = new Set(['islamic']);
 const CATEGORIES = [
   ['general', { en: 'General Knowledge', ar: 'معلومات عامة' }, '🌍'],
   ['science', { en: 'Science', ar: 'العلوم' }, '🔬'],
@@ -290,7 +291,7 @@ function sampleQuestions(): SeedQuestion[] {
   return qs;
 }
 
-const SEED_VERSION = 2;
+const SEED_VERSION = 3;
 
 export async function seed(): Promise<void> {
   // repeated boots (SEED_ON_BOOT) return immediately once this seed version has been applied
@@ -311,10 +312,13 @@ async function seedContent(): Promise<void> {
   // ---------- CORE ----------
   for (let i = 0; i < CATEGORIES.length; i++) {
     const [slug, name, icon] = CATEGORIES[i];
+    // religious content needs a specialist reviewer + sources (directive §10): the category ships hidden
+    // until an admin enables it from the categories panel
+    const active = !RELIGION_SLUGS.has(slug as string);
     await query(
-      `INSERT INTO categories (slug, name, icon, sort_order) VALUES ($1,$2,$3,$4)
+      `INSERT INTO categories (slug, name, icon, sort_order, is_active) VALUES ($1,$2,$3,$4,$5)
        ON CONFLICT (slug) DO NOTHING`,
-      [slug, JSON.stringify(name), icon, i],
+      [slug, JSON.stringify(name), icon, i, active],
     );
   }
   for (let i = 0; i < ACHIEVEMENTS.length; i++) {
@@ -370,11 +374,13 @@ async function seedContent(): Promise<void> {
     const { rows } = await query(
       `INSERT INTO questions (type, category_id, difficulty, language, content, correct_answer, configuration,
          explanation, tags, status, content_hash, source)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'approved',$10,'seed') RETURNING id`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$11,$10,'seed') RETURNING id`,
       [
         q.type, catMap.get(q.category) ?? null, q.difficulty, q.language,
         JSON.stringify(q.content), JSON.stringify(q.correct ?? null), JSON.stringify(q.config ?? {}),
         JSON.stringify(q.explanation ?? {}), q.tags ?? [], hash,
+        // religious questions wait in the review queue for a specialist + source
+        RELIGION_SLUGS.has(q.category) ? 'pending_review' : 'approved',
       ],
     );
     await query('INSERT INTO question_stats (question_id) VALUES ($1) ON CONFLICT DO NOTHING', [rows[0].id]);

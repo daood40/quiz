@@ -2,6 +2,8 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { env } from '../../config/env.js';
 import { audit } from '../../core/audit.js';
+import { log } from '../../core/log.js';
+import { mailEnabled, passwordResetMail, sendMail, verifyEmailMail } from '../../core/mail.js';
 import { AppError, badRequest, conflict, forbidden, notFound, unauthorized } from '../../core/errors.js';
 import { getSettings } from '../../core/settings.js';
 import { query, withTransaction } from '../../db/pool.js';
@@ -132,14 +134,15 @@ export async function register(input: z.infer<typeof registerSchema>, ip: string
     return res.rows[0];
   });
 
-  // email verification token (delivered by the mail adapter once configured; see docs/SECURITY.md)
-  const { hash } = generateOpaqueToken();
+  // email verification token — delivered by the mail adapter when MAIL_* is configured
+  const { token: verifyToken, hash } = generateOpaqueToken();
   await query(
     `INSERT INTO email_verification_tokens (user_id, token_hash, expires_at)
      VALUES ($1, $2, now() + interval '48 hours')`,
     [row.id, hash],
   );
 
+  if (mailEnabled()) void sendMail(verifyEmailMail(row.email, verifyToken)).catch(() => undefined);
   audit(row.id, 'auth.register', 'user', row.id, {}, ip);
   const tokens = await issueTokens(row.id, row.role, false);
   return { user: toPublicUser(row), ...tokens };
@@ -237,11 +240,10 @@ export async function forgotPassword(email: string): Promise<{ resetToken?: stri
     [rows[0].id, hash],
   );
   audit(rows[0].id, 'auth.password_reset_requested', 'user', rows[0].id);
-  // No mail transport is wired yet: the token is only surfaced to the automated test suite.
-  // Outside tests the request is accepted (no account enumeration) and logged for the operator.
-  if (env.isTest) return { resetToken: token };
-  console.warn(`password reset requested for user ${rows[0].id}; configure MAIL_* to deliver tokens`);
-  return {};
+  if (mailEnabled()) await sendMail(passwordResetMail(email, token));
+  else log.warn({ userId: rows[0].id }, 'password reset requested but MAIL_PROVIDER is not configured');
+  // the plaintext token is only surfaced to the automated test suite (never in production responses)
+  return env.isTest && !mailEnabled() ? { resetToken: token } : {};
 }
 
 export async function resetPassword(token: string, newPassword: string): Promise<void> {
@@ -276,6 +278,14 @@ export async function changePassword(userId: string, current: string, next: stri
   const passwordHash = await bcrypt.hash(next, env.bcryptRounds);
   await query('UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2', [passwordHash, userId]);
   audit(userId, 'auth.password_changed', 'user', userId);
+}
+
+export async function resendVerification(userId: string): Promise<boolean> {
+  const { rows } = await query('SELECT email, email_verified_at FROM users WHERE id = $1 AND is_guest = false', [userId]);
+  if (!rows[0] || rows[0].email_verified_at || !mailEnabled()) return false;
+  const { token, hash } = generateOpaqueToken();
+  await query(`INSERT INTO email_verification_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, now() + interval '48 hours')`, [userId, hash]);
+  return sendMail(verifyEmailMail(rows[0].email, token));
 }
 
 export async function verifyEmail(token: string): Promise<void> {

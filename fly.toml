@@ -10,6 +10,7 @@ primary_region = "fra"
   PORT = "3001"
   JOBS_ENABLED = "true"
   SEED_ON_BOOT = "true"
+  TRUST_PROXY = "1"
 
 [http_service]
   internal_port = 3001

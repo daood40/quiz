@@ -210,6 +210,10 @@ export function SettingsPage() {
     nav('/login');
   });
 
+  const [resendVerify, resending] = useAction(async () => {
+    const r = await post<{ sent: boolean }>('/auth/resend-verification');
+    toast(r.sent ? `✓ ${t('resendVerification')}` : t('error'));
+  });
   if (!user) return <Spinner />;
   const countryOk = country === '' || /^[A-Za-z]{2}$/.test(country);
   const pwMismatch = pw.confirm.length > 0 && pw.confirm !== pw.next;
@@ -219,6 +223,12 @@ export function SettingsPage() {
       <h1>⚙️ {t('settings')}</h1>
       <div className="card">
         <h2>{t('profile')}</h2>
+        {!user.isGuest && !user.emailVerified && (
+          <p className="banner warn row between">
+            <span>✉️ {t('emailNotVerified')}</span>
+            <button type="button" className="btn secondary sm" onClick={() => void resendVerify()} disabled={resending}>{t('resendVerification')}</button>
+          </p>
+        )}
         <form className="stack" onSubmit={(e) => { e.preventDefault(); void saveProfile(); }}>
           <Field label={t('displayName')}>{(id) => <input id={id} value={displayName} maxLength={60} onChange={(e) => setDisplayName(e.target.value)} />}</Field>
           <Field label={t('country')} hint={t('countryHint')} error={countryOk ? undefined : t('countryHint')}>

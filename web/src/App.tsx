@@ -4,7 +4,7 @@ import { IS_DEMO, get } from './api';
 import { OfflineBanner, Spinner, ToastProvider } from './components';
 import { AuthProvider, ThemeProvider, useAuth, useTheme } from './ctx';
 import { I18nProvider, useI18n, type Lang } from './i18n';
-import { ForgotPage, LoginPage, RegisterPage } from './pages/auth';
+import { ForgotPage, LoginPage, RegisterPage, VerifyEmailPage } from './pages/auth';
 import { HomePage } from './pages/home';
 import { PlayPage, ReviewPage } from './pages/quiz';
 import { AchievementsPage, NotificationsPage, PublicProfilePage, SettingsPage, StatsPage } from './pages/profile';
@@ -151,6 +151,7 @@ function Shell() {
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot" element={<ForgotPage />} />
+          <Route path="/verify" element={<VerifyEmailPage />} />
           <Route path="/" element={<Protected><HomePage /></Protected>} />
           <Route path="/play" element={<Protected><PlayPage /></Protected>} />
           <Route path="/review/:attemptId" element={<Protected><ReviewPage /></Protected>} />

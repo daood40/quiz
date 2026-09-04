@@ -33,8 +33,12 @@ export function reportError(err: unknown, context: Record<string, unknown> = {})
   if (alertBucket.sent >= MAX_ALERTS_PER_MINUTE) return;
   alertBucket.sent++;
   const e = err as Error;
+  const headline = `[quiz-platform] ${context.kind ?? 'error'}: ${e?.message ?? String(err)}`;
+  // `text` (Slack), `content` (Discord) and `message` (Telegram/other relays) all carry the same headline
   const payload = {
-    text: `[quiz-platform] ${context.kind ?? 'error'}: ${e?.message ?? String(err)}`,
+    text: headline,
+    content: headline.slice(0, 1900),
+    message: headline,
     error: { name: e?.name, message: e?.message, stack: e?.stack?.split('\n').slice(0, 8).join('\n') },
     context,
     ts: new Date().toISOString(),

@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { post } from '../api';
 import { Field, errorMessage, useAction } from '../components';
 import { PasswordInput } from './profile';
@@ -135,9 +135,11 @@ export function RegisterPage() {
 
 export function ForgotPage() {
   const { t } = useI18n();
+  const [params] = useSearchParams();
+  const linkToken = params.get('token') ?? '';
   const [email, setEmail] = useState('');
-  const [sent, setSent] = useState(false);
-  const [token, setToken] = useState('');
+  const [sent, setSent] = useState(!!linkToken); // arriving from the email link jumps straight to the reset step
+  const [token, setToken] = useState(linkToken);
   const [password, setPassword] = useState('');
   const [done, setDone] = useState(false);
   const [request, requesting] = useAction(async () => {
@@ -169,6 +171,27 @@ export function ForgotPage() {
           <button className="btn" style={{ width: '100%' }} disabled={resetting || password.length < 8 || token.trim().length < 20}>{t('resetPassword')}</button>
         </form>
       )}
+    </AuthShell>
+  );
+}
+
+
+/** Landing page for the verification link in the welcome email (/verify?token=…). */
+export function VerifyEmailPage() {
+  const { t } = useI18n();
+  const [params] = useSearchParams();
+  const token = params.get('token') ?? '';
+  const [state, setState] = useState<'pending' | 'ok' | 'error'>('pending');
+  const [message, setMessage] = useState('');
+  useEffect(() => {
+    if (!token) { setState('error'); setMessage(t('verifyInvalid')); return; }
+    post('/auth/verify-email', { token }).then(() => setState('ok')).catch((err) => { setState('error'); setMessage(errorMessage(err, t)); });
+  }, [token, t]);
+  return (
+    <AuthShell title={t('verifyEmail')}>
+      {state === 'pending' && <p className="muted" role="status">{t('loading')}</p>}
+      {state === 'ok' && <p role="status">✓ {t('verified')} <Link to="/login">{t('login')}</Link></p>}
+      {state === 'error' && <p className="error-text" role="alert">{message}</p>}
     </AuthShell>
   );
 }

@@ -338,6 +338,11 @@ const dict = {
   aiQuota: { en: 'Daily quota', ar: 'الحصة اليومية' },
   aiDrafted: { en: 'Drafts added to review', ar: 'مسودات أُضيفت للمراجعة' },
   aiModel: { en: 'Model', ar: 'النموذج' },
+  verifyEmail: { en: 'Email verification', ar: 'تأكيد البريد الإلكتروني' },
+  verified: { en: 'Your email is verified.', ar: 'تم تأكيد بريدك.' },
+  verifyInvalid: { en: 'This verification link is invalid or expired.', ar: 'رابط التأكيد غير صالح أو منتهٍ.' },
+  resendVerification: { en: 'Resend verification email', ar: 'إعادة إرسال رسالة التأكيد' },
+  emailNotVerified: { en: 'Email not verified', ar: 'البريد غير مؤكد' },
 } as const;
 
 export type TKey = keyof typeof dict;

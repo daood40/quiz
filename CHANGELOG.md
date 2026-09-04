@@ -29,12 +29,18 @@ Master Directive hardening release: audited end-to-end (security, data layer, op
 - Password strength meter, confirm + show/hide, translated network errors, report-a-question dialog with reasons.
 - Offline banner app-wide, countdown pauses offline, service worker never caches error pages, versioned shell with update prompt.
 
+### Launch readiness
+- Transactional mail adapter (`MAIL_PROVIDER=resend` or `log`): password-reset and verification emails with deep links (`/forgot?token=`, `/verify?token=`), resend-verification endpoint and banner.
+- Religion category ships hidden with its questions in review until a specialist reviewer enables it (directive §10).
+- Error webhook payload compatible with Discord, Slack and Telegram relays; `TRUST_PROXY=1` preset for Render/Fly.
+- `docs/LAUNCH.md`: step-by-step Arabic launch guide (Render blueprint, Pages switch, domain, mail, alerts, content, pre-launch checklist).
+
 ### AI gateway (SOURCE_LOCK)
 - `modules/ai`: provider abstraction (Anthropic SDK with structured output, or `mock`), disabled by default.
 - Drafts are validated by the engine, de-duplicated and filed as `pending_review`; religious categories are refused before any provider call; per-user and platform daily quotas with a token ledger.
 
 ### Tests
-- 21 new tests (112 total): ownership, lockout, session invalidation, rate limiting over HTTP, readiness, job locking, archive-on-delete, cache sizing, CSV hardening, AI gateway.
+- 24 new tests (115 total): ownership, lockout, session invalidation, rate limiting over HTTP, readiness, job locking, archive-on-delete, cache sizing, CSV hardening, AI gateway.
 
 ## [1.0.0] - 2026-09-03
 
