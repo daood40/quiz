@@ -56,10 +56,13 @@ for (const [name, viewport, arabic] of [['mobile-ar', { width: 375, height: 720 
   await a11y(page, `${name}: question`);
   // the bank is shuffled: skip non-choice questions until one with options shows up, then answer it
   let answered = false;
-  for (let i = 0; i < 6 && !answered; i++) {
+  // two thirds of the demo bank are text/number answers, so those are answered too (any text yields feedback in practice)
+  for (let i = 0; i < 10 && !answered; i++) {
     const opt = page.locator('.option').first();
-    if (await opt.count()) {
-      await opt.click();
+    const text = page.locator('.quiz-card input[type="text"], .quiz-card input:not([type]), .quiz-card textarea').first();
+    if (await opt.count()) await opt.click();
+    else if (await text.count()) await text.fill('42');
+    if ((await opt.count()) || (await text.count())) {
       const submit = page.getByRole('button', { name: arabic ? /^إرسال/ : /^Submit/ }).first();
       await submit.waitFor({ state: 'visible', timeout: 3000 });
       if (await submit.isEnabled()) {
