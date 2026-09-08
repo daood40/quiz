@@ -48,7 +48,8 @@
 - الحالات: Loading/Empty/Error+Retry في كل شاشة (`useAsync` + `ErrorState`)، Offline banner، Permission (403 مترجم)، Success (Toasts/Confetti).
 - الدليل: `docs/PRODUCT_AUDIT.md` (18 قسمًا) + E2E الجوال (تجاوز أفقي = 0px على 360/375/390).
 
-## 04 UI/UX Design System — PASS
+## 04 UI/UX Design System — PASS (v4 "ember & ink", 2026-09-08)
+- نظام ألوان جديد (فاتح/داكن) بلهجة واحدة (ember)، خط Cairo، شريط تنقّل عائم، بطاقة سؤال مزدوجة الإطار؛ كل أزواج الرموز ≥4.5:1 نصًا و≥3:1 حدودًا (محسوبة)، axe 0 مخالفات بعد التغيير.
 - Tokens (ألوان/خط/مسافات/زوايا/ظلال/Elevation) في `web/src/styles.css`؛ فاتح/داكن؛ RTL/LTR بخصائص منطقية.
 - المكونات وحالاتها: Default/Hover/Focus-visible (مميّز عن Selected)/Pressed/Disabled/Loading/Error/Empty.
 - Responsive: جوال/تابلت/سطح مكتب (E2E)؛ Accessibility: Labels مرتبطة، أسماء للأزرار الأيقونية، Radiogroup للخيارات، Hotspot بلوحة المفاتيح، Skip-link، Reduced motion، أهداف لمس ≥44px.

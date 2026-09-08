@@ -571,7 +571,7 @@ export function ResultView({ summary, outcomes = [] }: { summary: Summary; outco
     if (!g) return;
     const css = getComputedStyle(document.documentElement);
     const grad = g.createLinearGradient(0, 0, 1080, 1080);
-    grad.addColorStop(0, css.getPropertyValue('--primary').trim() || '#177d6e'); grad.addColorStop(1, css.getPropertyValue('--success').trim() || '#4f945c');
+    grad.addColorStop(0, css.getPropertyValue('--primary').trim() || '#c2410c'); grad.addColorStop(1, css.getPropertyValue('--success').trim() || '#1f7a4d');
     g.fillStyle = grad; g.fillRect(0, 0, 1080, 1080);
     g.fillStyle = 'rgba(255,255,255,0.12)';
     g.beginPath(); g.arc(900, 140, 260, 0, Math.PI * 2); g.fill();

@@ -28,7 +28,10 @@ Skill-checklist pass (web security, performance, PWA, SEO, accessibility, design
 - Footer is a real `contentinfo` landmark, `<main>` is focusable for the skip link, nav landmarks named, tables have `scope="col"`, heading order fixed.
 - 44 px touch targets on coarse pointers; phone top-nav overflow gets a fade affordance.
 
-### Design
+### Design (v4 "ember & ink")
+- New visual system: cool navy ink on soft paper (light) and deep-night navy (dark), one ember accent for every action, Cairo variable font for Arabic and Latin.
+- Floating pill navigation on desktop (edge bar on phones), double-bezel quiz card, colour-coded accent bars on answer tiles, squircle avatars, staggered card entry.
+- Sentence-case labels, heavier display headings, dedicated blue focus ring distinct from selection; all token pairs verified ≥4.5:1 (text) and ≥3:1 (borders) in both themes.
 - Skeleton loaders replace spinners for every data view; `100dvh`; z-index scale tokens.
 
 ## [1.1.0] - 2026-09-04

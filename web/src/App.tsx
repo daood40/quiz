@@ -172,7 +172,7 @@ function Shell() {
       <OfflineBanner />
       <UpdateBanner />
       {IS_DEMO && user && (
-        <div className="banner info" style={{ borderRadius: 0, textAlign: 'center', fontSize: 13 }}>
+        <div className="banner info demo-banner">
           🧪 {t('demoBanner')}{' '}
           <a href="https://github.com/daood40/quiz" target="_blank" rel="noreferrer">GitHub ↗</a>
         </div>
