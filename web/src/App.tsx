@@ -3,15 +3,46 @@ import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation } fr
 import { IS_DEMO, get } from './api';
 import { OfflineBanner, Spinner, ToastProvider } from './components';
 import { AuthProvider, ThemeProvider, useAuth, useTheme } from './ctx';
-import { I18nProvider, useI18n, type Lang } from './i18n';
+import { I18nProvider, useI18n, type Lang, type TKey } from './i18n';
 import { ForgotPage, LoginPage, RegisterPage, VerifyEmailPage } from './pages/auth';
 import { HomePage } from './pages/home';
-import { PlayPage, ReviewPage } from './pages/quiz';
 import { AchievementsPage, NotificationsPage, PublicProfilePage, SettingsPage, StatsPage } from './pages/profile';
 import { Footer, HelpPage, NotFoundPage, PrivacyPage, TermsPage } from './pages/legal';
 
 // route-level code splitting: staff and social surfaces are not shipped to every visitor
 const AdminPage = lazy(() => import('./pages/admin').then((m) => ({ default: m.AdminPage })));
+const quiz = () => import('./pages/quiz');
+const PlayPage = lazy(() => quiz().then((m) => ({ default: m.PlayPage })));
+const ReviewPage = lazy(() => quiz().then((m) => ({ default: m.ReviewPage })));
+
+/** Per-route document metadata: title, canonical URL and robots directive (SPA, so it must be set at runtime). */
+const PUBLIC_ROUTES: Record<string, TKey> = { '/': 'home', '/privacy': 'privacy', '/terms': 'terms', '/help': 'help' };
+const PRIVATE_ROUTES: Record<string, TKey> = {
+  '/login': 'login', '/register': 'register', '/forgot': 'forgotTitle', '/verify': 'verifyEmail',
+  '/play': 'play', '/leaderboard': 'leaderboard', '/challenges': 'challenges', '/monthly': 'monthly',
+  '/friends': 'friends', '/groups': 'groups', '/tournaments': 'tournaments', '/stats': 'stats',
+  '/achievements': 'achievements', '/notifications': 'notifications', '/settings': 'settings', '/admin': 'admin',
+  '/review': 'review', '/u': 'profile',
+};
+function RouteMeta() {
+  const { pathname } = useLocation();
+  const { t, lang } = useI18n();
+  useEffect(() => {
+    const first = '/' + pathname.split('/')[1];
+    const pub = PUBLIC_ROUTES[pathname];
+    const priv = PRIVATE_ROUTES[first];
+    const key = pub ?? priv ?? 'notFoundTitle';
+    document.title = pathname === '/' ? 'Quiz Platform' : `${t(key)} · Quiz Platform`;
+    const base = (import.meta.env.BASE_URL as string) || '/';
+    const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    // whichever host serves this build (Pages under /quiz/, or the API origin) is the canonical one
+    if (canonical) canonical.href = window.location.origin + base.replace(/\/$/, '') + (pub ? pathname : '/');
+    let robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    if (!robots) { robots = document.createElement('meta'); robots.name = 'robots'; document.head.appendChild(robots); }
+    robots.content = pub ? 'index,follow' : 'noindex,nofollow';
+  }, [pathname, t, lang]);
+  return null;
+}
 const social = () => import('./pages/social');
 const LeaderboardPage = lazy(() => social().then((m) => ({ default: m.LeaderboardPage })));
 const ChallengesPage = lazy(() => social().then((m) => ({ default: m.ChallengesPage })));
@@ -135,6 +166,7 @@ function Shell() {
   const { t } = useI18n();
   return (
     <div className="app-shell">
+      <RouteMeta />
       <a href="#main" className="skip-link">{t('skipToContent')}</a>
       <TopBar />
       <OfflineBanner />

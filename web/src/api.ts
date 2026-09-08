@@ -16,21 +16,26 @@ export class ApiError extends Error {
   }
 }
 
-let accessToken: string | null = localStorage.getItem('accessToken');
-let refreshToken: string | null = localStorage.getItem('refreshToken');
+/** localStorage can throw (blocked storage, some in-app webviews): never let that break boot. */
+export function storageGet(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+export function storageSet(key: string, value: string | null): void {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch { /* storage unavailable */ }
+}
+
+let accessToken: string | null = storageGet('accessToken');
+let refreshToken: string | null = storageGet('refreshToken');
 let refreshing: Promise<boolean> | null = null;
 
 export function setTokens(access: string | null, refresh: string | null): void {
   accessToken = access;
   refreshToken = refresh;
-  try {
-    if (access) localStorage.setItem('accessToken', access);
-    else localStorage.removeItem('accessToken');
-    if (refresh) localStorage.setItem('refreshToken', refresh);
-    else localStorage.removeItem('refreshToken');
-  } catch {
-    /* storage unavailable */
-  }
+  storageSet('accessToken', access);
+  storageSet('refreshToken', refresh);
 }
 
 export function hasSession(): boolean {

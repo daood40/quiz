@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { detectLang } from './i18n';
 import './styles.css';
 import { applyLargeText } from './sounds';
 
@@ -24,16 +25,15 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 }
 
 // language/direction before first paint (persisted choice), then the web font off the critical path
-try {
-  const saved = localStorage.getItem('lang');
-  const lang = saved === 'ar' || saved === 'en' ? saved : navigator.language.startsWith('ar') ? 'ar' : 'en';
+{
+  const lang = detectLang();
   document.documentElement.lang = lang;
   document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-} catch { /* storage unavailable */ }
+}
 const font = document.createElement('link');
 font.rel = 'stylesheet';
 font.href = 'https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800;900&display=swap';
-window.addEventListener('load', () => document.head.appendChild(font));
+document.head.appendChild(font); // non-blocking: appended after HTML parse, preconnect hints already warm
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

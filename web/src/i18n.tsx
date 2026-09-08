@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { storageGet, storageSet } from './api';
 
 export type Lang = 'ar' | 'en';
 
@@ -180,6 +181,8 @@ const dict = {
   terms: { en: 'Terms of use', ar: 'شروط الاستخدام' },
   lastUpdated: { en: 'Last updated', ar: 'آخر تحديث' },
   notFound: { en: 'That page does not exist.', ar: 'هذه الصفحة غير موجودة.' },
+  notFoundTitle: { en: 'Page not found', ar: 'الصفحة غير موجودة' },
+  forgotTitle: { en: 'Reset password', ar: 'استعادة كلمة المرور' },
   skipToContent: { en: 'Skip to content', ar: 'انتقل إلى المحتوى' },
   welcomeTip: { en: 'Tip: start with the Daily Quiz — same questions for everyone today.', ar: 'نصيحة: ابدأ باختبار اليوم — نفس الأسئلة للجميع اليوم.' },
   playedToday: { en: "Today's quiz done ✓", ar: 'أنجزت اختبار اليوم ✓' },
@@ -364,8 +367,15 @@ interface I18n {
 
 const I18nContext = createContext<I18n>(null as never);
 
+/** Persisted choice, else the browser locale (Arabic-first product). Shared with the pre-paint bootstrap in main.tsx. */
+export function detectLang(): Lang {
+  const saved = storageGet('lang');
+  if (saved === 'ar' || saved === 'en') return saved;
+  return typeof navigator !== 'undefined' && navigator.language?.toLowerCase().startsWith('ar') ? 'ar' : 'en';
+}
+
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>(() => (localStorage.getItem('lang') as Lang) || 'en');
+  const [lang, setLangState] = useState<Lang>(detectLang);
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
 
   useEffect(() => {
@@ -387,7 +397,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
         return '';
       },
       setLang: (l) => {
-        localStorage.setItem('lang', l);
+        storageSet('lang', l);
         setLangState(l);
       },
     }),

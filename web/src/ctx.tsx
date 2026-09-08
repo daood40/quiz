@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { get, post, setTokens, hasSession } from './api';
+import { get, post, setTokens, hasSession, storageGet, storageSet } from './api';
 
 export interface User {
   id: string;
@@ -93,13 +93,13 @@ const ThemeContext = createContext<ThemeCtx>(null as never);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem('theme') as Theme | null;
+    const saved = storageGet('theme') as Theme | null;
     if (saved) return saved;
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    localStorage.setItem('theme', theme);
+    storageSet('theme', theme);
   }, [theme]);
   const value = useMemo(() => ({ theme, toggle: () => setTheme((t) => (t === 'light' ? 'dark' : 'light')) }), [theme]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

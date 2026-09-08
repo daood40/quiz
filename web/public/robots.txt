@@ -1,3 +1,12 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /login
+Disallow: /register
+Disallow: /forgot
+Disallow: /verify
+Disallow: /settings
+Disallow: /notifications
+Disallow: /review/
+Disallow: /api/
 Sitemap: https://daood40.github.io/quiz/sitemap.xml

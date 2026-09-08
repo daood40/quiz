@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
@@ -52,7 +52,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(cors, {
     origin: env.corsOrigin.split(',').map((o) => o.trim()),
-    credentials: true,
+    credentials: false, // auth is Bearer + refresh token in body; no cookies anywhere
   });
 
   app.addHook('onRequest', attachIdentity);
@@ -68,7 +68,12 @@ export async function buildApp(): Promise<FastifyInstance> {
     reply.header('x-frame-options', 'DENY');
     reply.header('referrer-policy', 'no-referrer');
     reply.header('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=()');
-    if (!req.raw.url?.startsWith('/api/')) {
+    if (req.raw.url?.startsWith('/api/')) {
+      // API JSON: never cacheable (per-user data, bfcache/back-button) unless a route opted in explicitly,
+      // and a locked-down CSP so a response can never be rendered as a document
+      if (!reply.hasHeader('cache-control')) reply.header('cache-control', 'no-store');
+      reply.header('content-security-policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+    } else {
       // SPA shell: scripts only from self; styles/fonts from self + Google Fonts; media may be external https
       reply.header(
         'content-security-policy',
@@ -81,6 +86,7 @@ export async function buildApp(): Promise<FastifyInstance> {
           "media-src 'self' blob: https:",
           "connect-src 'self'",
           "worker-src 'self'",
+          "object-src 'none'",
           "frame-ancestors 'none'",
           "base-uri 'self'",
           "form-action 'self'",
@@ -158,15 +164,31 @@ export async function buildApp(): Promise<FastifyInstance> {
     { prefix: '/api/v1' },
   );
 
+  // first path segment of every client-side route (keep in sync with web/src/App.tsx)
+  const SPA_ROUTES = new Set(['/', '/login', '/register', '/forgot', '/verify', '/play', '/review', '/leaderboard',
+    '/challenges', '/monthly', '/friends', '/groups', '/tournaments', '/stats', '/achievements', '/notifications',
+    '/settings', '/u', '/admin', '/privacy', '/terms', '/help']);
   // serve the built web app when present (single-server deployment)
   const webDist = join(dirname(fileURLToPath(import.meta.url)), '../../web/dist');
   if (existsSync(webDist)) {
-    await app.register(fastifyStatic, { root: webDist, wildcard: false });
+    await app.register(fastifyStatic, {
+      root: webDist,
+      wildcard: false,
+      maxAge: 0, // index.html / sw.js / manifest must always revalidate
+      setHeaders: (reply, path) => {
+        // content-hashed bundles are immutable; cache them for a year
+        if (path.includes(`${sep}assets${sep}`)) reply.header('cache-control', 'public, max-age=31536000, immutable');
+      },
+    });
     app.setNotFoundHandler((req, reply) => {
       if (req.raw.url?.startsWith('/api/')) {
         return reply.status(404).send({ error: { code: 'not_found', message: 'Route not found' } });
       }
-      return reply.sendFile('index.html'); // SPA fallback
+      // SPA fallback: known client routes get the shell with 200; anything else still renders the shell
+      // (client 404 page) but with an honest 404 status so crawlers do not index junk URLs
+      const first = '/' + (req.raw.url ?? '/').split('?')[0].split('/')[1];
+      if (!SPA_ROUTES.has(first)) reply.code(404);
+      return reply.sendFile('index.html');
     });
   }
 
