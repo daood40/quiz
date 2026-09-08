@@ -28,6 +28,14 @@ Skill-checklist pass (web security, performance, PWA, SEO, accessibility, design
 - Footer is a real `contentinfo` landmark, `<main>` is focusable for the skip link, nav landmarks named, tables have `scope="col"`, heading order fixed.
 - 44 px touch targets on coarse pointers; phone top-nav overflow gets a fade affordance.
 
+### Store apps (Android / iOS)
+- Capacitor 7 shells in `web/android` and `web/ios` around the same web bundle: haptics, system share sheet (result cards, data export), optional daily local reminder, theme-aware status bar, Android back button, external links in the system browser, deep links.
+- Android: target/compile SDK 35, min 23, `allowBackup=false`, cleartext off, no exact-alarm permissions, upload-key signing from CI secrets, versionCode derived from `package.json`.
+- iOS: portrait, `ITSAppUsesNonExemptEncryption=false`, `PrivacyInfo.xcprivacy` (no tracking, UserDefaults CA92.1), AR/EN localisations, trivia-games category.
+- Brand mark + adaptive icons + splash (light/dark) generated from `web/assets`.
+- `.github/workflows/mobile.yml`: signed AAB/APK and simulator/IPA builds; `docs/STORE_SUBMISSION.md`: Play/App Store steps, data-safety answers, review notes, listing copy, legal checklist.
+- Public `/delete-account` page (Play + App Store requirement) and privacy policy sections for the apps.
+
 ### Design (v4 "ember & ink")
 - New visual system: cool navy ink on soft paper (light) and deep-night navy (dark), one ember accent for every action, Cairo variable font for Arabic and Latin.
 - Floating pill navigation on desktop (edge bar on phones), double-bezel quiz card, colour-coded accent bars on answer tiles, squircle avatars, staggered card entry.

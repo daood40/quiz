@@ -1,3 +1,4 @@
+import { IS_NATIVE, nativeHaptic } from './native';
 /** Gentle audio cues via WebAudio (no assets). Soft, short, low-volume —
  *  designed not to startle. User-toggleable; off when reduced-motion is set. */
 
@@ -61,6 +62,7 @@ export const sfx = {
 export function haptic(kind: 'correct' | 'wrong' | 'tap'): void {
   if (!soundsEnabled()) return;
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  if (IS_NATIVE) { void nativeHaptic(kind).catch(() => undefined); return; }
   const pattern = kind === 'correct' ? [18] : kind === 'wrong' ? [40, 40, 40] : [8];
   try { navigator.vibrate?.(pattern); } catch { /* unsupported */ }
 }

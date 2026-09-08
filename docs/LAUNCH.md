@@ -57,6 +57,9 @@
 - [ ] الجوال: افتح الرابط في Chrome/Safari → «إضافة إلى الشاشة الرئيسية» يعمل.
 - [ ] Discord يستقبل رسالة اختبار (افتح `https://<رابطك>/api/v1/does-not-exist` لن يُرسل شيئًا لأنه 404؛ التنبيه للأخطاء 500 فقط).
 
+## 7ب) تطبيقات المتاجر
+التطبيق الأصلي (Android/iOS) يُبنى من نفس الكود: انظر `docs/STORE_SUBMISSION.md`. لا تنسَ إضافة `https://localhost,capacitor://localhost` إلى `CORS_ORIGIN` على Render.
+
 ## 8) بعد الإطلاق (أسبوعيًا)
 - **النسخ الاحتياطي:** Render يحتفظ بنسخ يومية لقاعدة البيانات. للنسخة الخارجية شغّل `scripts/backup.sh` من جهازك مع `DATABASE_URL` الخارجي (Render → Database → External URL).
 - **المراقبة:** `/metrics` (Prometheus) و`/ready`؛ وقناة Discord.

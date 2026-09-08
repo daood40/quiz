@@ -2,13 +2,14 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { detectLang } from './i18n';
+import { IS_NATIVE, initNative } from './native';
 import './styles.css';
 import { applyLargeText } from './sounds';
 
 applyLargeText();
 
 // installable + offline app shell (production builds only)
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+if (import.meta.env.PROD && !IS_NATIVE && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).then((reg) => {
       // a new build installed while the app is open → offer a reload (no silent mid-session swap)
@@ -40,3 +41,6 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 );
+
+// native shell: status bar, back button, external links, splash hide (no-op on the web)
+void initNative();

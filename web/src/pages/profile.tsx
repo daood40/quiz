@@ -6,6 +6,7 @@ import { useAuth } from '../ctx';
 import { useI18n, type Lang } from '../i18n';
 import { useTheme } from '../ctx';
 import { autoAdvanceEnabled, largeTextEnabled, setAutoAdvance, setLargeText, setSoundsEnabled, soundsEnabled } from '../sounds';
+import { IS_NATIVE, nativeShareBlob, reminderEnabled, setDailyReminder } from '../native';
 
 export function PublicProfilePage() {
   const { t } = useI18n();
@@ -189,6 +190,7 @@ export function SettingsPage() {
   const [country, setCountry] = useState(user?.country ?? '');
   const [avatar, setAvatar] = useState(user?.avatar ?? '');
   const [sounds, setSounds] = useState(soundsEnabled());
+  const [reminder, setReminder] = useState(reminderEnabled());
   const [largeText, setLargeTextState] = useState(largeTextEnabled());
   const [autoAdv, setAutoAdv] = useState(autoAdvanceEnabled());
   const [pw, setPw] = useState({ current: '', next: '', confirm: '' });
@@ -205,6 +207,7 @@ export function SettingsPage() {
   });
   const [downloadData, downloading] = useAction(async () => {
     const blob = await api<Blob>('/users/me/export', { raw: true });
+    if (await nativeShareBlob(blob, 'my-quiz-data.json', t('downloadData'))) return;
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'my-quiz-data.json';
@@ -266,6 +269,9 @@ export function SettingsPage() {
           <ToggleChip checked={sounds} onChange={(v) => { setSounds(v); setSoundsEnabled(v); }}>🔔 {t('sound')}</ToggleChip>
           <ToggleChip checked={largeText} onChange={(v) => { setLargeTextState(v); setLargeText(v); }}>🔍 {t('largeText')}</ToggleChip>
           <ToggleChip checked={autoAdv} onChange={(v) => { setAutoAdv(v); setAutoAdvance(v); }}>⏭️ {t('autoAdvance')}</ToggleChip>
+          {IS_NATIVE && (
+            <ToggleChip checked={reminder} onChange={(v) => { void setDailyReminder(v, { title: t('reminderTitle'), body: t('reminderBody') }).then((ok) => { setReminder(ok ? v : false); if (!ok && v) toast(t('reminderDenied')); }); }}>⏰ {t('dailyReminder')}</ToggleChip>
+          )}
         </div>
       </div>
       {!user.isGuest && (

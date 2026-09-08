@@ -45,6 +45,7 @@
 | [docs/TESTING.md](docs/TESTING.md) | استراتيجية الاختبارات وتشغيلها |
 | [docs/LAUNCH.md](docs/LAUNCH.md) | **دليل الإطلاق خطوة بخطوة (ابدأ هنا)** |
 | [docs/GATES.md](docs/GATES.md) | أدلة بوابات الإطلاق (46 بوابة) والفجوات المتبقية |
+| [docs/STORE_SUBMISSION.md](docs/STORE_SUBMISSION.md) | **النشر على Google Play وApp Store (تطبيق Capacitor)** |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | النشر الإنتاجي الكامل والنسخ الاحتياطي |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | المراحل المنجزة وخطة المستقبل |
 

@@ -167,7 +167,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   // first path segment of every client-side route (keep in sync with web/src/App.tsx)
   const SPA_ROUTES = new Set(['/', '/login', '/register', '/forgot', '/verify', '/play', '/review', '/leaderboard',
     '/challenges', '/monthly', '/friends', '/groups', '/tournaments', '/stats', '/achievements', '/notifications',
-    '/settings', '/u', '/admin', '/privacy', '/terms', '/help']);
+    '/settings', '/u', '/admin', '/privacy', '/terms', '/help', '/delete-account']);
   // serve the built web app when present (single-server deployment)
   const webDist = join(dirname(fileURLToPath(import.meta.url)), '../../web/dist');
   if (existsSync(webDist)) {

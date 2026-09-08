@@ -7,7 +7,7 @@ import { I18nProvider, useI18n, type Lang, type TKey } from './i18n';
 import { ForgotPage, LoginPage, RegisterPage, VerifyEmailPage } from './pages/auth';
 import { HomePage } from './pages/home';
 import { AchievementsPage, NotificationsPage, PublicProfilePage, SettingsPage, StatsPage } from './pages/profile';
-import { Footer, HelpPage, NotFoundPage, PrivacyPage, TermsPage } from './pages/legal';
+import { AccountDeletionPage, Footer, HelpPage, NotFoundPage, PrivacyPage, TermsPage } from './pages/legal';
 
 // route-level code splitting: staff and social surfaces are not shipped to every visitor
 const AdminPage = lazy(() => import('./pages/admin').then((m) => ({ default: m.AdminPage })));
@@ -16,7 +16,7 @@ const PlayPage = lazy(() => quiz().then((m) => ({ default: m.PlayPage })));
 const ReviewPage = lazy(() => quiz().then((m) => ({ default: m.ReviewPage })));
 
 /** Per-route document metadata: title, canonical URL and robots directive (SPA, so it must be set at runtime). */
-const PUBLIC_ROUTES: Record<string, TKey> = { '/': 'home', '/privacy': 'privacy', '/terms': 'terms', '/help': 'help' };
+const PUBLIC_ROUTES: Record<string, TKey> = { '/': 'home', '/privacy': 'privacy', '/terms': 'terms', '/help': 'help', '/delete-account': 'deleteAccountPage' };
 const PRIVATE_ROUTES: Record<string, TKey> = {
   '/login': 'login', '/register': 'register', '/forgot': 'forgotTitle', '/verify': 'verifyEmail',
   '/play': 'play', '/leaderboard': 'leaderboard', '/challenges': 'challenges', '/monthly': 'monthly',
@@ -205,6 +205,7 @@ function Shell() {
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/help" element={<HelpPage />} />
+          <Route path="/delete-account" element={<AccountDeletionPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
         </Suspense>

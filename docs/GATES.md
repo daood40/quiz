@@ -152,7 +152,10 @@
 ## 31 Legal & Privacy — PASS
 - سياسة الخصوصية والشروط (AR/EN)، الموافقة عند التسجيل، حذف الحساب (تجهيل)، تصدير البيانات، Retention موثق، لا Cookies تتبع. TODO للمالك: مراجعة قانونية بحسب الدولة/العمر.
 
-## 32 App Store Preparation — N/A (PWA) / TODO عند Flutter.
+## 32 App Store Preparation — PASS (Capacitor، 2026-09-08)
+- `web/android` (SDK 35، توقيع من أسرار CI) و`web/ios` (PrivacyInfo، تصدير IPA من أسرار CI)؛ سير عمل `mobile.yml` يبني AAB/APK ويترجم iOS.
+- متطلبات المراجعة: حذف الحساب داخل التطبيق + صفحة `/delete-account`، سياسة خصوصية للتطبيقات، لا تتبّع/إعلانات/SDK خارجية، أذونات دنيا، Data safety وNutrition labels موثّقة في `docs/STORE_SUBMISSION.md`.
+- ما يبقى على المالك: حسابات المطوّرين، مفاتيح التوقيع، `MOBILE_API_BASE`، اللقطات، الضغط على Submit.
 
 ## 33 Web Deployment — PASS
 - Domain/DNS/SSL عبر المزود، CDN (Pages)، SEO (Meta/OG/Sitemap/Robots)، PWA، Analytics داخلية، Error tracking.

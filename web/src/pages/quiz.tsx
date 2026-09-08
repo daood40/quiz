@@ -4,6 +4,7 @@ import { ApiError, del, get, post } from '../api';
 import { ErrorState, Spinner, StatBox, fmtMs, useAction, useOnline, useToast, useTypeSpecs } from '../components';
 import { useAuth } from '../ctx';
 import { useI18n, type TKey } from '../i18n';
+import { nativeShareBlob, nativeShareText } from '../native';
 import { QuestionRenderer, type PlayableQuestion } from '../QuestionRenderer';
 import { autoAdvanceEnabled, haptic, sfx } from '../sounds';
 
@@ -554,6 +555,7 @@ export function ResultView({ summary, outcomes = [] }: { summary: Summary; outco
     // Wordle-style share card: score + emoji outcome grid
     const text = `🧠 ${t('appName')}\n${t('score')}: ${summary.score}/${summary.maxScore} · ${summary.accuracy}%\n${grid}`;
     try {
+      if (await nativeShareText(text, t('appName'))) return;
       if (navigator.share) await navigator.share({ text });
       else {
         await navigator.clipboard.writeText(text);
@@ -592,6 +594,7 @@ export function ResultView({ summary, outcomes = [] }: { summary: Summary; outco
     if (!blob) return;
     const file = new File([blob], 'quiz-result.png', { type: 'image/png' });
     try {
+      if (await nativeShareBlob(blob, 'quiz-result.png', t('appName'))) return;
       if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file] }); return; }
     } catch { /* cancelled */ }
     const a = document.createElement('a');
