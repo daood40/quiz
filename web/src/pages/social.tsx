@@ -47,7 +47,7 @@ export function LeaderboardPage() {
             </div>
           )}
           <div className="tbl-wrap"><table className="tbl">
-            <thead><tr><th>#</th><th>{t('username')}</th><th>{t('level')}</th><th>{t('points')}</th><th>{t('totalTime')}</th></tr></thead>
+            <thead><tr><th scope="col">#</th><th scope="col">{t('username')}</th><th scope="col">{t('level')}</th><th scope="col">{t('points')}</th><th scope="col">{t('totalTime')}</th></tr></thead>
             <tbody>
               {data.entries.map((e) => (
                 <tr key={e.userId} className={e.userId === user?.id ? 'me' : ''} aria-current={e.userId === user?.id ? 'true' : undefined}>
@@ -139,7 +139,7 @@ export function ChallengesPage() {
       <div className="card">
         {listError ? <ErrorState error={listError} onRetry={load} /> : !list ? <Spinner /> : list.length === 0 ? <EmptyState /> : (
           <div className="tbl-wrap"><table className="tbl">
-            <thead><tr><th>{t('name')}</th><th>{t('code')}</th><th>{t('status')}</th><th><span className="sr-only">{t('actions')}</span></th></tr></thead>
+            <thead><tr><th scope="col">{t('name')}</th><th scope="col">{t('code')}</th><th scope="col">{t('status')}</th><th scope="col"><span className="sr-only">{t('actions')}</span></th></tr></thead>
             <tbody>
               {list.map((c) => (
                 <tr key={c.id}>
@@ -202,7 +202,7 @@ export function ChallengeDetailPage() {
         <h2>{t('participants')}</h2>
         {data.participants.length === 0 ? <EmptyState label={t('noParticipants')} /> : (
         <div className="tbl-wrap"><table className="tbl">
-          <thead><tr><th>#</th><th>{t('username')}</th><th>{t('status')}</th><th>{t('score')}</th><th>{t('totalTime')}</th></tr></thead>
+          <thead><tr><th scope="col">#</th><th scope="col">{t('username')}</th><th scope="col">{t('status')}</th><th scope="col">{t('score')}</th><th scope="col">{t('totalTime')}</th></tr></thead>
           <tbody>
             {data.participants.map((p, i) => (
               <tr key={p.userId} className={p.userId === user?.id ? 'me' : ''} aria-current={p.userId === user?.id ? 'true' : undefined}>
@@ -259,7 +259,7 @@ export function MonthlyPage() {
         <h2>{t('leaderboard')}</h2>
         {data.leaderboard.length === 0 ? <EmptyState /> : (
           <div className="tbl-wrap"><table className="tbl">
-            <thead><tr><th>#</th><th>{t('username')}</th><th>{t('points')}</th><th>{t('totalTime')}</th></tr></thead>
+            <thead><tr><th scope="col">#</th><th scope="col">{t('username')}</th><th scope="col">{t('points')}</th><th scope="col">{t('totalTime')}</th></tr></thead>
             <tbody>
               {data.leaderboard.map((e) => (
                 <tr key={e.userId} className={e.userId === user?.id ? 'me' : ''} aria-current={e.userId === user?.id ? 'true' : undefined}>
@@ -383,7 +383,7 @@ export function GroupDetailPage() {
         <h2>{t('leaderboard')}</h2>
         {data.members.length === 0 ? <EmptyState label={t('noParticipants')} /> : (
         <div className="tbl-wrap"><table className="tbl">
-          <thead><tr><th>#</th><th>{t('username')}</th><th>{t('level')}</th><th>{t('points')}</th></tr></thead>
+          <thead><tr><th scope="col">#</th><th scope="col">{t('username')}</th><th scope="col">{t('level')}</th><th scope="col">{t('points')}</th></tr></thead>
           <tbody>
             {data.members.map((m) => (
               <tr key={m.userId} className={m.userId === user?.id ? 'me' : ''} aria-current={m.userId === user?.id ? 'true' : undefined}>

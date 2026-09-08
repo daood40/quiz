@@ -115,7 +115,7 @@ export function PlayPage() {
         {mode !== 'daily' && (
           <div className="mode-pick">
             {MODES.map((m) => (
-              <button key={m.id} className={mode === m.id ? 'selected' : ''} onClick={() => setMode(m.id)}>
+              <button key={m.id} className={mode === m.id ? 'selected' : ''} aria-pressed={mode === m.id} onClick={() => setMode(m.id)}>
                 <div className="mp-icon">{m.icon}</div>
                 <div className="mp-name">{modeMeta[m.id].name}</div>
                 <div className="mp-desc">{modeMeta[m.id].desc}</div>
@@ -126,9 +126,9 @@ export function PlayPage() {
         {mode !== 'review' && mode !== 'daily' && mode !== 'bookmarks' && (
           <>
             <div>
-              <label className="fld">{t('category')}</label>
+              <label className="fld" htmlFor="q-category">{t('category')}</label>
               <div className="row" style={{ flexWrap: 'nowrap' }}>
-                <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                <select id="q-category" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
                   <option value="">{t('anyCategory')}</option>
                   {categories.map((c) => <option key={c.id} value={c.id}>{pick(c.name)}</option>)}
                 </select>
@@ -145,8 +145,8 @@ export function PlayPage() {
               </div>
             </div>
             <div>
-              <label className="fld">{t('difficulty')}</label>
-              <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
+              <label className="fld" htmlFor="q-difficulty">{t('difficulty')}</label>
+              <select id="q-difficulty" value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
                 <option value="">{t('anyDifficulty')}</option>
                 {(['easy', 'medium', 'hard', 'expert'] as const).map((d) => <option key={d} value={d}>{t(d)}</option>)}
               </select>
@@ -155,8 +155,8 @@ export function PlayPage() {
         )}
         {mode !== 'daily' && (
           <div>
-            <label className="fld">{t('questions')}: {count}</label>
-            <input type="range" min={3} max={30} value={count} onChange={(e) => setCount(Number(e.target.value))} />
+            <label className="fld" htmlFor="q-count">{t('questions')}: {count}</label>
+            <input id="q-count" type="range" min={3} max={30} value={count} onChange={(e) => setCount(Number(e.target.value))} />
           </div>
         )}
         {error && <p className="error-text">{error}</p>}
@@ -408,12 +408,12 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
           )}
         </div>
       )}
-      {hasOptions && !feedback && <p className="muted kbd-hint" aria-hidden="true">⌨️ {t('keyboardHint')}</p>}
+      {hasOptions && !feedback && <p className="muted kbd-hint">⌨️ {t('keyboardHint')}</p>}
       <div className="card quiz-card">
         {feedback ? (
           <>
-            <p className="quiz-question">{pick(question.content.prompt)}</p>
-            <div className={`feedback ${feedback.outcome === 'correct' ? 'good' : feedback.outcome === 'partial' ? 'good' : 'bad'}`}>
+            <h1 className="quiz-question">{pick(question.content.prompt)}</h1>
+            <div className={`feedback ${feedback.outcome === 'correct' ? 'good' : feedback.outcome === 'partial' ? 'good' : 'bad'}`} role="status">
               <div className="fb-head">
                 {feedback.outcome === 'correct' ? `✓ ${t('feedbackCorrect')}` : feedback.outcome === 'partial' ? `± ${t('partial')}` : `✗ ${t('feedbackWrong')}`}
               </div>
@@ -484,7 +484,7 @@ function TimerRing({ left, total }: { left: number; total: number }) {
   const c = 2 * Math.PI * r;
   const frac = Math.max(0, Math.min(1, left / total));
   return (
-    <div className={`timer-wrap ${left <= 5 ? 'low' : ''}`} aria-live="polite" aria-label={`${left}s`}>
+    <div className={`timer-wrap ${left <= 5 ? 'low' : ''}`} role="timer" aria-label={`${left}s`}>
       <svg width={58} height={58} aria-hidden="true">
         <circle className="track" cx={29} cy={29} r={r} fill="none" strokeWidth={5} />
         <circle
@@ -605,7 +605,8 @@ export function ResultView({ summary, outcomes = [] }: { summary: Summary; outco
           {Array.from({ length: 24 }, (_, i) => <span key={i} style={{ '--i': i } as React.CSSProperties} />)}
         </div>
       )}
-      <div className="result-emoji">{summary.isPerfect ? '🏆' : summary.accuracy >= 60 ? '🎉' : '💪'}</div>
+      <h1 className="sr-only">{t('resultsHeading')}</h1>
+      <div className="result-emoji" aria-hidden="true">{summary.isPerfect ? '🏆' : summary.accuracy >= 60 ? '🎉' : '💪'}</div>
       {summary.isPerfect && <h2>{t('perfect')}</h2>}
       <p className="result-score">{shownScore} <span className="of">/ {summary.maxScore}</span></p>
       <AccuracyRing pct={summary.accuracy} label={t('accuracy')} />

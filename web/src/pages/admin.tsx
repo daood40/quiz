@@ -106,7 +106,7 @@ function Questions() {
       <div className="card">
         {error ? <ErrorState error={error} onRetry={reload} /> : !data ? <Spinner /> : data.questions.length === 0 ? <EmptyState label={t('noResults')} /> : (
           <div className="tbl-wrap"><table className="tbl">
-            <thead><tr><th><span className="sr-only">{t('actions')}</span></th><th>{t('prompt')}</th><th>{t('type')}</th><th>{t('difficulty')}</th><th>{t('language')}</th><th>{t('quality')}</th><th>{t('status')}</th><th>{t('actions')}</th></tr></thead>
+            <thead><tr><th scope="col"><span className="sr-only">{t('actions')}</span></th><th scope="col">{t('prompt')}</th><th scope="col">{t('type')}</th><th scope="col">{t('difficulty')}</th><th scope="col">{t('language')}</th><th scope="col">{t('quality')}</th><th scope="col">{t('status')}</th><th scope="col">{t('actions')}</th></tr></thead>
             <tbody>
               {data.questions.map((q) => (
                 <tr key={q.id}>
@@ -189,7 +189,7 @@ function ImportExport() {
             <p><span className="badge success">{t('imported')}: {result.imported}</span> <span className="badge">{t('duplicates')}: {result.duplicates ?? 0}</span> <span className="badge danger">{t('errors')}: {result.totalErrors}</span></p>
             {result.errors.length > 0 && (
               <div className="tbl-wrap"><table className="tbl">
-                <thead><tr><th>{t('row')}</th><th>{t('field')}</th><th>{t('error')}</th></tr></thead>
+                <thead><tr><th scope="col">{t('row')}</th><th scope="col">{t('field')}</th><th scope="col">{t('error')}</th></tr></thead>
                 <tbody>{result.errors.slice(0, 30).map((e, i) => <tr key={i}><td>{e.row}</td><td>{e.field}</td><td>{e.error}</td></tr>)}</tbody>
               </table></div>
             )}
@@ -237,7 +237,7 @@ function Users() {
       <input type="search" aria-label={t('searchUsers')} placeholder={t('searchUsers')} value={searchInput} onChange={(e) => { setSearchInput(e.target.value); setOffset(0); }} style={{ maxWidth: 260, marginBottom: 10 }} />
       {error ? <ErrorState error={error} onRetry={reload} /> : !data ? <Spinner /> : data.users.length === 0 ? <EmptyState label={t('noResults')} /> : (
         <div className="tbl-wrap"><table className="tbl">
-          <thead><tr><th>{t('user')}</th><th>{t('email')}</th><th>{t('role')}</th><th>{t('status')}</th><th>{t('level')}</th><th>{t('points')}</th><th>{t('attempts')}</th><th>{t('actions')}</th></tr></thead>
+          <thead><tr><th scope="col">{t('user')}</th><th scope="col">{t('email')}</th><th scope="col">{t('role')}</th><th scope="col">{t('status')}</th><th scope="col">{t('level')}</th><th scope="col">{t('points')}</th><th scope="col">{t('attempts')}</th><th scope="col">{t('actions')}</th></tr></thead>
           <tbody>
             {data.users.map((u) => (
               <tr key={u.id}>
@@ -324,7 +324,7 @@ function Suspicious() {
     <div className="card">
       {data.attempts.length === 0 ? <EmptyState label={t('noFlagged')} /> : (
         <div className="tbl-wrap"><table className="tbl">
-          <thead><tr><th>{t('user')}</th><th>{t('mode')}</th><th>{t('score')}</th><th>{t('flags')}</th><th>{t('suspicion')}</th><th>{t('actions')}</th></tr></thead>
+          <thead><tr><th scope="col">{t('user')}</th><th scope="col">{t('mode')}</th><th scope="col">{t('score')}</th><th scope="col">{t('flags')}</th><th scope="col">{t('suspicion')}</th><th scope="col">{t('actions')}</th></tr></thead>
           <tbody>
             {data.attempts.map((a) => (
               <tr key={a.id}>

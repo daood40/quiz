@@ -63,11 +63,11 @@ export function LoginPage() {
       <form onSubmit={submit}>
         <div className="fld-group">
           <label className="fld" htmlFor="ident">{t('emailOrUsername')}</label>
-          <input id="ident" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required autoFocus />
+          <input id="ident" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required autoFocus autoComplete="username" />
         </div>
         <div className="fld-group">
           <label className="fld" htmlFor="pw">{t('password')}</label>
-          <input id="pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <input id="pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
         </div>
         {error && <p className="error-text" role="alert">{error}</p>}
         <div className="stack">

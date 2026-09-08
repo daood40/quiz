@@ -28,11 +28,13 @@ const arr = (v: unknown): Array<Record<string, unknown>> => (Array.isArray(v) ? 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 
 function MediaBlock({ content }: { content: Record<string, unknown> }) {
+  const { pick } = useI18n();
   const media = content.media as { kind?: string; url?: string } | undefined;
   if (!media?.url) return null;
   if (media.kind === 'audio') return <audio controls src={media.url} style={{ width: '100%' }} />;
   if (media.kind === 'video') return <video controls src={media.url} style={{ width: '100%', borderRadius: 12 }} />;
-  return <img src={media.url} alt="" style={{ maxWidth: '100%', borderRadius: 12 }} />;
+  const alt = typeof (media as { alt?: unknown }).alt === 'string' ? (media as { alt: string }).alt : pick(content.prompt);
+  return <img src={media.url} alt={alt} style={{ maxWidth: '100%', borderRadius: 12 }} />;
 }
 
 function Passage({ content }: { content: Record<string, unknown> }) {
@@ -66,7 +68,11 @@ function SingleChoice({ question, onSubmit, disabled, withConfidence }: Props & 
   // desktop: 1-9 pick an option, Enter submits (Sporcle/Kahoot keyboard parity)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (disabled || (e.target as HTMLElement)?.tagName === 'INPUT') return;
+      const el = e.target as HTMLElement | null;
+      if (disabled || !el) return;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable) return;
+      // Enter on a focused option is a click (select it) — never a submit of a *different* selection
+      if (e.key === 'Enter' && el.closest('[role="radiogroup"]')) return;
       const n = Number(e.key);
       if (n >= 1 && n <= options.length) setSelected(str(options[n - 1].id));
       else if (e.key === 'Enter' && selected) onSubmit(withConfidence ? { optionId: selected, confidence } : selected);
@@ -74,13 +80,25 @@ function SingleChoice({ question, onSubmit, disabled, withConfidence }: Props & 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [disabled, options, selected, confidence, withConfidence, onSubmit]);
+  // WAI-ARIA radiogroup: one tab stop, arrows/Home/End move between options
+  const onGroupKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const radios = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]:not(:disabled)'));
+    const cur = radios.indexOf(document.activeElement as HTMLButtonElement);
+    if (cur < 0) return;
+    const next = { ArrowDown: cur + 1, ArrowRight: cur + 1, ArrowUp: cur - 1, ArrowLeft: cur - 1, Home: 0, End: radios.length - 1 }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    radios[(next + radios.length) % radios.length]?.focus();
+  };
+  const tabStop = selected ?? str(options[0]?.id);
   return (
-    <div className="stack" role="radiogroup" aria-label={t('question')}>
+    <div className="stack" role="radiogroup" aria-label={t('question')} onKeyDown={onGroupKey}>
       {options.map((o, i) => (
         <button
           key={str(o.id)}
           role="radio"
           aria-checked={selected === o.id}
+          tabIndex={str(o.id) === tabStop ? 0 : -1}
           className={`option k${i % 4} ${selected === o.id ? 'selected' : ''}`}
           onClick={() => !disabled && setSelected(str(o.id))}
           disabled={disabled}
@@ -94,7 +112,7 @@ function SingleChoice({ question, onSubmit, disabled, withConfidence }: Props & 
       {withConfidence && (
         <div className="row">
           <span className="muted">{t('confidence')}</span>
-          <input type="range" min={1} max={5} value={confidence} onChange={(e) => setConfidence(Number(e.target.value))} style={{ maxWidth: 200 }} />
+          <input type="range" min={1} max={5} value={confidence} aria-label={t('confidence')} onChange={(e) => setConfidence(Number(e.target.value))} style={{ maxWidth: 200 }} />
           <span className="badge primary">{confidence}/5</span>
         </div>
       )}
@@ -108,7 +126,7 @@ function SingleChoice({ question, onSubmit, disabled, withConfidence }: Props & 
 }
 
 function MultiChoice({ question, onSubmit, disabled }: Props) {
-  const { pick, lang } = useI18n();
+  const { t, pick, lang } = useI18n();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const options = arr(question.content.options);
   const keys = lang === 'ar' ? KEYS_AR : KEYS_EN;
@@ -120,7 +138,7 @@ function MultiChoice({ question, onSubmit, disabled }: Props) {
       return n;
     });
   return (
-    <div className="stack">
+    <div className="stack" role="group" aria-label={t('question')}>
       {options.map((o, i) => (
         <button key={str(o.id)} role="checkbox" aria-checked={selected.has(str(o.id))} className={`option k${i % 4} ${selected.has(str(o.id)) ? 'selected' : ''}`} onClick={() => !disabled && toggle(str(o.id))} disabled={disabled}>
           <span className="opt-key" aria-hidden="true">{selected.has(str(o.id)) ? '✓' : keys[i] ?? i + 1}</span>
@@ -138,9 +156,10 @@ function TextAnswer({ onSubmit, disabled, numeric }: Props & { numeric?: boolean
   return (
     <div className="stack">
       <input
-        type={numeric ? 'text' : 'text'}
+        type="text"
         inputMode={numeric ? 'decimal' : 'text'}
         placeholder={t('typeAnswer')}
+        aria-label={t('typeAnswer')}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && value.trim() && !disabled && onSubmit(value.trim())}
@@ -153,13 +172,14 @@ function TextAnswer({ onSubmit, disabled, numeric }: Props & { numeric?: boolean
 }
 
 function SliderAnswer({ question, onSubmit, disabled }: Props) {
+  const { pick } = useI18n();
   const min = typeof question.content.min === 'number' ? question.content.min : 0;
   const max = typeof question.content.max === 'number' ? question.content.max : 100;
   const [value, setValue] = useState(Math.round((min + max) / 2));
   return (
     <div className="stack">
       <div className="row">
-        <input type="range" min={min} max={max} value={value} onChange={(e) => setValue(Number(e.target.value))} disabled={disabled} style={{ flex: 1 }} />
+        <input type="range" min={min} max={max} value={value} aria-label={pick(question.content.prompt)} onChange={(e) => setValue(Number(e.target.value))} disabled={disabled} style={{ flex: 1 }} />
         <span className="badge primary" style={{ fontSize: 16 }}>{value}</span>
       </div>
       <SubmitBar onSubmit={() => onSubmit(value)} canSubmit disabled={disabled} />
@@ -212,7 +232,7 @@ function Matching({ question, onSubmit, disabled }: Props) {
       {left.map((l) => (
         <div className="row" key={str(l.id)}>
           <span style={{ minWidth: 120, fontWeight: 700 }}>{pick(l.text)}</span>
-          <select value={map[str(l.id)] ?? ''} onChange={(e) => setMap((m) => ({ ...m, [str(l.id)]: e.target.value }))} disabled={disabled} style={{ maxWidth: 240 }}>
+          <select value={map[str(l.id)] ?? ''} aria-label={pick(l.text)} onChange={(e) => setMap((m) => ({ ...m, [str(l.id)]: e.target.value }))} disabled={disabled} style={{ maxWidth: 240 }}>
             <option value="">—</option>
             {right.map((r) => (
               <option key={str(r.id)} value={str(r.id)}>{pick(r.text)}</option>
@@ -235,7 +255,7 @@ function Categorization({ question, onSubmit, disabled }: Props) {
       {items.map((i) => (
         <div className="row" key={str(i.id)}>
           <span style={{ minWidth: 120, fontWeight: 700 }}>{pick(i.text)}</span>
-          <select value={map[str(i.id)] ?? ''} onChange={(e) => setMap((m) => ({ ...m, [str(i.id)]: e.target.value }))} disabled={disabled} style={{ maxWidth: 240 }}>
+          <select value={map[str(i.id)] ?? ''} aria-label={pick(i.text)} onChange={(e) => setMap((m) => ({ ...m, [str(i.id)]: e.target.value }))} disabled={disabled} style={{ maxWidth: 240 }}>
             <option value="">—</option>
             {cats.map((c) => (
               <option key={str(c.id)} value={str(c.id)}>{pick(c.text)}</option>
@@ -492,11 +512,11 @@ function GridEntry({ question: _question, onSubmit, disabled, gridRows, slots }:
         slots.map((s) => (
           <div className="row" key={str(s.id)}>
             <span style={{ minWidth: 160 }} className="muted">{pick(s.clue ?? s.label)}</span>
-            <input value={entries[str(s.id)] ?? ''} onChange={(e) => setEntries((m) => ({ ...m, [str(s.id)]: e.target.value }))} disabled={disabled} style={{ maxWidth: 220 }} />
+            <input value={entries[str(s.id)] ?? ''} aria-label={pick(s.clue ?? s.label)} onChange={(e) => setEntries((m) => ({ ...m, [str(s.id)]: e.target.value }))} disabled={disabled} style={{ maxWidth: 220 }} />
           </div>
         ))
       ) : (
-        <input placeholder="word1, word2, …" value={words} onChange={(e) => setWords(e.target.value)} disabled={disabled} />
+        <input placeholder="word1, word2, …" aria-label="word1, word2, …" value={words} onChange={(e) => setWords(e.target.value)} disabled={disabled} />
       )}
       <SubmitBar
         onSubmit={() => onSubmit(keyed ? { entries } : { found: words.split(/[,،]/).map((w) => w.trim()).filter(Boolean) })}
@@ -529,7 +549,7 @@ function Submission({ onSubmit, disabled }: Props) {
   const [value, setValue] = useState('');
   return (
     <div className="stack">
-      <textarea rows={5} placeholder={t('typeAnswer')} value={value} onChange={(e) => setValue(e.target.value)} disabled={disabled} />
+      <textarea rows={5} placeholder={t('typeAnswer')} aria-label={t('typeAnswer')} value={value} onChange={(e) => setValue(e.target.value)} disabled={disabled} />
       <SubmitBar onSubmit={() => onSubmit(value.trim())} canSubmit={value.trim().length > 0} disabled={disabled} />
     </div>
   );
@@ -629,7 +649,7 @@ export function QuestionRenderer({ question, specs, onSubmit, disabled }: { ques
     <div>
       <Passage content={question.content} />
       <MediaBlock content={question.content} />
-      <p className="quiz-question">{pick(question.content.prompt)}</p>
+      <h1 className="quiz-question">{pick(question.content.prompt)}</h1>
       <FamilyRenderer question={question} spec={specs.get(question.type)} specs={specs} onSubmit={onSubmit} disabled={disabled} />
     </div>
   );

@@ -44,7 +44,7 @@ function LegalDoc({ title, updated, rows }: { title: string; updated: string; ro
       <p className="muted">{updated}</p>
       {rows.map(([h, p]) => (
         <section key={h} style={{ marginTop: 14 }}>
-          <h3>{h}</h3>
+          <h2 style={{ fontSize: 16 }}>{h}</h2>
           <p style={{ margin: 0 }}>{p}</p>
         </section>
       ))}

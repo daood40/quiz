@@ -135,7 +135,7 @@ export function HomePage() {
           <EmptyState />
         ) : (
           <div className="tbl-wrap"><table className="tbl">
-            <thead><tr><th>{t('mode')}</th><th>{t('score')}</th><th>{t('correct')}</th><th>{t('totalTime')}</th><th /></tr></thead>
+            <thead><tr><th scope="col">{t('mode')}</th><th scope="col">{t('score')}</th><th scope="col">{t('correct')}</th><th scope="col">{t('totalTime')}</th><th scope="col" /></tr></thead>
             <tbody>
               {recent.map((a) => (
                 <tr key={a.id}>

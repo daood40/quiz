@@ -2,6 +2,35 @@
 
 All notable changes to QUIZ PLATFORM. Format: [Keep a Changelog](https://keepachangelog.com/), versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+Skill-checklist pass (web security, performance, PWA, SEO, accessibility, design) — every finding verified against the running app.
+
+### Security
+- API responses: `cache-control: no-store` by default and a locked-down CSP (`default-src 'none'`); `object-src 'none'` on the shell; CORS no longer advertises credentials (no cookies exist).
+- Blocked `localStorage` (private mode, strict webviews) can no longer break boot: all reads/writes go through guarded helpers.
+
+### Performance & PWA
+- Hashed bundles are served `immutable` for a year; `index.html`, `sw.js` and the manifest always revalidate.
+- Quiz screens are a lazy chunk (main bundle 104 kB → 72 kB); web font requested at parse time instead of after `load`.
+- Service worker keeps itself alive until cache writes land; manifest gains a stable `id` and a maskable 192 px icon.
+
+### SEO
+- Unknown paths return a real 404 status; per-route `<title>`, canonical URL and `robots` meta (private routes `noindex`).
+- `<html lang="ar" dir="rtl">` default, absolute `og:image`, sitemap lists public pages only (+`lastmod`), robots disallows private routes.
+- One locale detector: Arabic-language browsers start in Arabic on first visit.
+
+### Accessibility (axe: 0 violations on 62 scans, 17 routes × AR/EN × phone/desktop)
+- Light theme tokens darkened to WCAG AA (text 5.1:1, accents ≥4.6:1, input borders 3:1); locked achievements no longer fade their text.
+- Choice questions follow the ARIA radiogroup pattern (roving tabindex, arrow keys); Enter on a focused option selects it instead of submitting a different one.
+- Every answer control (range, text, selects, grid, textarea) and the quiz setup form has an accessible name; login has `autocomplete`.
+- Question prompt is the page `<h1>`, feedback is a live `status` region, timer no longer announces every second, keyboard hint visible to assistive tech.
+- Footer is a real `contentinfo` landmark, `<main>` is focusable for the skip link, nav landmarks named, tables have `scope="col"`, heading order fixed.
+- 44 px touch targets on coarse pointers; phone top-nav overflow gets a fade affordance.
+
+### Design
+- Skeleton loaders replace spinners for every data view; `100dvh`; z-index scale tokens.
+
 ## [1.1.0] - 2026-09-04
 
 Master Directive hardening release: audited end-to-end (security, data layer, operations, frontend) and fixed in place. See `docs/MASTER_PLAN.md`.

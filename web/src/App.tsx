@@ -82,7 +82,7 @@ function TopBar() {
   return (
     <header className="topbar">
       <Link to="/" className="brand">🧠 <span>{t('appName')}</span></Link>
-      <nav aria-label={t('home')}>
+      <nav aria-label={t('mainNav')}>
         {links.map(([to, label]) => (
           <NavLink
             key={to}
@@ -125,7 +125,7 @@ function TabBar() {
     ['/achievements', '🏅', t('achievements')],
   ];
   return (
-    <nav className="tabbar" aria-label={t('play')}>
+    <nav className="tabbar" aria-label={t('primaryTabs')}>
       {tabs.map(([to, icon, label]) => (
         <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => (isActive ? 'active' : '')}>
           <span className="ico" aria-hidden="true">{icon}</span>
@@ -177,7 +177,7 @@ function Shell() {
           <a href="https://github.com/daood40/quiz" target="_blank" rel="noreferrer">GitHub ↗</a>
         </div>
       )}
-      <main className="main" id="main">
+      <main className="main" id="main" tabIndex={-1}>
         <Suspense fallback={<div className="center" style={{ padding: 40 }}><Spinner /></div>}>
         <Routes>
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
@@ -208,8 +208,8 @@ function Shell() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
         </Suspense>
-        <Footer />
       </main>
+      <Footer />
       <TabBar />
     </div>
   );

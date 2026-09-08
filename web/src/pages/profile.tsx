@@ -90,10 +90,10 @@ export function StatsPage() {
       </div>
       <div className="grid cols-2">
         {s.bestCategory && (
-          <div className="card"><h3>💪 {t('bestCategory')}</h3><p>{pick(s.bestCategory.name)} — <strong>{s.bestCategory.accuracy}%</strong></p></div>
+          <div className="card"><h2 style={{ fontSize: 16 }}>💪 {t('bestCategory')}</h2><p>{pick(s.bestCategory.name)} — <strong>{s.bestCategory.accuracy}%</strong></p></div>
         )}
         {s.weakestCategory && (
-          <div className="card"><h3>🎯 {t('weakestCategory')}</h3><p>{pick(s.weakestCategory.name)} — <strong>{s.weakestCategory.accuracy}%</strong></p></div>
+          <div className="card"><h2 style={{ fontSize: 16 }}>🎯 {t('weakestCategory')}</h2><p>{pick(s.weakestCategory.name)} — <strong>{s.weakestCategory.accuracy}%</strong></p></div>
         )}
       </div>
       {data.activity.length > 0 && (
@@ -110,7 +110,7 @@ export function StatsPage() {
         <div className="card">
           <h2>{t('categories')}</h2>
           <div className="tbl-wrap"><table className="tbl">
-            <thead><tr><th>{t('category')}</th><th>{t('answered')}</th><th>{t('correct')}</th><th>{t('accuracy')}</th></tr></thead>
+            <thead><tr><th scope="col">{t('category')}</th><th scope="col">{t('answered')}</th><th scope="col">{t('correct')}</th><th scope="col">{t('accuracy')}</th></tr></thead>
             <tbody>
               {s.categories.map((c) => (
                 <tr key={c.id}><td>{pick(c.name)}</td><td>{c.answered}</td><td>{c.correct}</td><td><strong>{c.accuracy}%</strong></td></tr>
@@ -135,9 +135,9 @@ export function AchievementsPage() {
       {list.length === 0 ? <div className="card"><EmptyState /></div> : (
       <div className="grid cols-3">
         {list.map((a) => (
-          <div key={a.id} className="card center" style={{ opacity: a.earned ? 1 : 0.55 }}>
-            <div style={{ fontSize: 34 }} aria-hidden="true">{a.earned ? a.icon || '🏅' : '🔒'}</div>
-            <h3>{pick(a.name)}</h3>
+          <div key={a.id} className={`card center ${a.earned ? '' : 'locked'}`}>
+            <div className="ach-icon" style={{ fontSize: 34 }} aria-hidden="true">{a.earned ? a.icon || '🏅' : '🔒'}</div>
+            <h2 style={{ fontSize: 16, margin: '0 0 8px' }}>{pick(a.name)}</h2>
             <p className="muted" style={{ margin: '2px 0 6px' }}>{pick(a.description)}</p>
             <span className={`badge ${a.earned ? 'success' : ''}`}>{a.earned ? `✓ ${t('completed')}` : `+${a.xpReward} XP`}</span>
           </div>

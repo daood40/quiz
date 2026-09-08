@@ -10,19 +10,20 @@
   --surface-2: #eeede6;
   --surface-3: #e3e2d9;
   --text: #22302c;
-  --text-2: #64716c;
+  --text-2: #5a665f;
   --border: #e2e1d8;
   --border-strong: #cbccc0;
-  --primary: #177d6e;
-  --primary-strong: #10695c;
+  --border-input: #8f948b; /* ≥3:1 on --surface (WCAG 1.4.11) */
+  --primary: #106356;
+  --primary-strong: #0c5449;
   --primary-soft: #e3efec;
   --primary-grad: linear-gradient(135deg, #177d6e 0%, #2e8a68 60%, #4f945c 100%);
   --on-primary: #ffffff;
-  --success: #3e8e5a;
+  --success: #2f7a4a;
   --success-soft: #e6f2e9;
-  --danger: #b8564b;
+  --danger: #a44338;
   --danger-soft: #f7e9e6;
-  --warn: #a87c2a;
+  --warn: #8a6420;
   --warn-soft: #f5efdd;
   --gold: #c9982e;
   --silver: #9aa39e;
@@ -47,6 +48,7 @@
   --text-2: #93a29b;
   --border: #263029;
   --border-strong: #37453e;
+  --border-input: #55665e;
   --primary: #5ebea8;
   --primary-strong: #7accb9;
   --primary-soft: #1b2f2a;
@@ -82,14 +84,14 @@ input, select, textarea {
   font-family: inherit;
   font-size: 15px;
   padding: 11px 14px;
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--border-input);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
   width: 100%;
   transition: border-color 0.15s;
 }
-input:hover, select:hover, textarea:hover { border-color: var(--border-strong); }
+input:hover, select:hover, textarea:hover { border-color: var(--text-2); }
 input:focus-visible, select:focus-visible, textarea:focus-visible,
 button:focus-visible, a:focus-visible {
   outline: 2px solid var(--primary);
@@ -362,7 +364,7 @@ html[data-textsize='large'] .quiz-question { font-size: 24px; }
 @keyframes tick-pulse { 50% { transform: scale(1.06); } }
 
 .quiz-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-.quiz-question { font-size: 21px; font-weight: 700; line-height: 1.45; margin: 16px 0 20px; text-wrap: balance; }
+.quiz-question { font-size: 21px; font-weight: 700; line-height: 1.45; letter-spacing: -0.01em; margin: 16px 0 20px; text-wrap: balance; }
 .quiz-passage {
   background: var(--surface-2); border-inline-start: 3px solid var(--primary);
   border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 12px; font-size: 14px;
@@ -724,3 +726,17 @@ body[data-focus='1'] .main { padding-top: 44px; }
 .skeleton-stack .skeleton:first-child { height: 20px; }
 @keyframes skeleton-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; background: var(--surface-2); } }
+
+/* touch targets: 44px on coarse pointers (phones/tablets) without changing the desktop density */
+@media (pointer: coarse) {
+  .btn.sm, .topbar nav a, .xw-clue, .chip { min-height: 44px; display: inline-flex; align-items: center; }
+  .topbar .brand { min-height: 44px; }
+}
+/* the phone top nav scrolls sideways: fade the trailing edge so the overflow is discoverable */
+@media (max-width: 640px) {
+  .topbar nav { mask-image: linear-gradient(to right, #000 88%, transparent); -webkit-mask-image: linear-gradient(to right, #000 88%, transparent); }
+  [dir='rtl'] .topbar nav { mask-image: linear-gradient(to left, #000 88%, transparent); -webkit-mask-image: linear-gradient(to left, #000 88%, transparent); }
+}
+/* locked achievements: dim the icon and border only — text keeps full contrast */
+.card.locked { border-style: dashed; background: var(--surface-2); }
+.card.locked .ach-icon { opacity: 0.55; filter: grayscale(1); }

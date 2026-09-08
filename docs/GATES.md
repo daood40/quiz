@@ -19,6 +19,20 @@
 
 ---
 
+## 00 Skills Audit Pass (2026-09-08) — PASS
+تُطبَّق حزم المهارات (web-security-basics, csp, cors, cookies/csrf, xss-prevention, clickjacking, browser-storage, web-performance, bundle/code-splitting/lazy-loading, font/image-optimization, service-workers, progressive-web-apps, seo-basics/technical-seo/sitemaps/robots, web-accessibility/html-accessibility/semantic-html/html-forms/web-forms, responsive-design, redesign-existing-projects, high-end-visual-design) على التطبيق الفعلي. مهارات Flutter/Kubernetes/Terraform لا تنطبق (ويب + Render).
+- **الأدلة (تُقاس على خادم يعمل):**
+  - `curl -sI /assets/<hash>.js` → `cache-control: public, max-age=31536000, immutable`؛ `/sw.js`, `/`, manifest → `max-age=0`.
+  - `curl -sI /api/v1/auth/guest` → `cache-control: no-store` + `content-security-policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'`؛ لا `access-control-allow-credentials`.
+  - `curl -sI /does-not-exist` → `404`؛ `/privacy` → `200`.
+  - CSP للواجهة بلا `unsafe-eval` ولا `unsafe-inline` للسكربت؛ `object-src 'none'`؛ `frame-ancestors 'none'` + `X-Frame-Options: DENY`.
+  - axe-core 4.10 على 62 مسحًا (17 مسارًا × عربي/إنجليزي × 390px/1280px): **0 مخالفات** (كانت: label/select-name حرجة، color-contrast خطيرة، heading-order).
+  - تباين الوضع الفاتح: text-2 5.1:1، primary 6.1:1، success 4.6:1، warn 4.7:1، danger 5.2:1، حدود الإدخال 3.0:1.
+  - الحزمة الرئيسية 104→72 kB (quiz chunk كسول)؛ Vite بلا تحذيرات حجم.
+  - عناوين/canonical/robots لكل مسار (تحقق متصفح ثنائي اللغة، 0 أخطاء JS).
+  - E2E كامل 11/11 ودخان 12/12 بعد التغييرات؛ 119 اختبار خادم؛ lint نظيف.
+- **ما تُرك عمدًا:** `style-src 'unsafe-inline'` (111 نمطًا مضمّنًا في React؛ إزالته تحتاج نقلها لفئات CSS)، تثبيت digest لصورة node (يُضاف عند أول بناء Docker فعلي)، محدّد المعدل داخل العملية (يكفي لنسخة واحدة؛ Redis عند التوسّع).
+
 ## 01 Product Discovery & Strategy — PASS
 - التعريف/القيمة/الفئة/المسار/النطاق: `docs/QUIZ_MASTER_DIRECTIVE_v2.md`, `docs/MARKET.md`.
 - تحليل 100 منافس + المشاكل وحلولها: `docs/COMPETITOR_ANALYSIS.md`.

@@ -4,11 +4,19 @@
  */
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { join, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
+// axe-core is injected as an init script (works even under a strict script-src CSP)
+const AXE = await readFile(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8');
+const a11y = async (page, label) => {
+  const r = await page.evaluate(() => window.axe.run(document, { resultTypes: ['violations'] }));
+  const bad = r.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
+  check(bad.length === 0, `${label}: no serious/critical axe violations${bad.length ? ' — ' + bad.map((v) => `${v.id}(${v.nodes.length})`).join(', ') : ''}`);
+};
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.xml': 'application/xml', '.txt': 'text/plain' };
 const server = http.createServer(async (req, res) => {
   const p = new URL(req.url, 'http://x').pathname.replace(/^\/quiz\/?/, '') || 'index.html';
@@ -31,18 +39,21 @@ for (const [name, viewport, arabic] of [['mobile-ar', { width: 375, height: 720 
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error' && !/googleapis|ERR_FAILED|ERR_CONNECTION/.test(m.text())) errors.push(m.text()); });
   await page.route(/^(?!http:\/\/localhost).*/, (r) => r.abort());
+  await page.addInitScript({ content: AXE });
   await page.goto('http://localhost:8899/quiz/', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(800);
   if (arabic) { await page.getByText('ع', { exact: true }).first().click(); await page.waitForTimeout(400); }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   check(overflow === 0, `${name}: no horizontal overflow (${overflow}px)`);
   check((await page.locator('.hero').count()) > 0, `${name}: home hero renders`);
+  await a11y(page, `${name}: home`);
   await page.getByRole('link', { name: arabic ? /العب/ : 'Play' }).first().click();
   await page.waitForTimeout(500);
   check((await page.locator('button:has-text("🧘")').count()) > 0, `${name}: play page shows modes`);
   await page.getByRole('button', { name: arabic ? /ابدأ الاختبار/ : /Start Quiz/ }).first().click();
   await page.waitForTimeout(900);
   check((await page.locator('.quiz-question').count()) > 0, `${name}: a question renders`);
+  await a11y(page, `${name}: question`);
   // the bank is shuffled: skip non-choice questions until one with options shows up, then answer it
   let answered = false;
   for (let i = 0; i < 6 && !answered; i++) {
