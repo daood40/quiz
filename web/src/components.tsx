@@ -2,9 +2,15 @@ import { createContext, useCallback, useContext, useEffect, useId, useRef, useSt
 import { ApiError, get } from './api';
 import { useI18n, type TKey } from './i18n';
 
-export const Spinner = () => {
+/** Loading state. Defaults to a layout-shaped skeleton (3 rows); `inline` keeps the small spinner for buttons/inline use. */
+export const Spinner = ({ rows = 3, inline = false }: { rows?: number; inline?: boolean }) => {
   const { t } = useI18n();
-  return <span className="spin" role="status" aria-label={t('loading')} />;
+  if (inline) return <span className="spin" role="status" aria-label={t('loading')} />;
+  return (
+    <div className="skeleton-stack" role="status" aria-label={t('loading')} aria-busy="true">
+      {Array.from({ length: rows }, (_, i) => <span key={i} className="skeleton" style={{ width: `${100 - (i % 3) * 14}%` }} />)}
+    </div>
+  );
 };
 
 /** Human message for any thrown error (network / demo-only / API) in the current language. */
