@@ -13,3 +13,8 @@
 | إتاحة WCAG AA | 2026-09-08 | axe 62 مسحًا = 0 | axe في دخان CI |
 | تصميم v4 ember & ink | 2026-09-08 | لقطات + axe | فاتح/داكن |
 | تطبيق Android/iOS (Capacitor) | 2026-09-09 | CI: AAB/APK + iOS simulator | اهتزاز، مشاركة، تذكير يومي |
+| جموع عربية نحوية (`n()` عبر Intl.PluralRules) | 2026-09-09 | tsc + لقطات | 11 مفتاح عدّ |
+| مظهر ثلاثي (النظام/فاتح/داكن) قبل أول رسم | 2026-09-09 | لقطات + native.ts | Capacitor يتبع matchMedia |
+| بدء اختبار idempotent (solo، 20 ثانية) | 2026-09-09 | vitest batch-c | `resumed: true` |
+| مفتاح إيقاف AI من الإعدادات (`aiEnabled`) | 2026-09-09 | vitest ai | 503 `ai_disabled` |
+| مجموعة تقييم AI ذهبية (16 حالة) | 2026-09-09 | vitest ai-eval | server/eval/cases.jsonl |

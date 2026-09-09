@@ -79,6 +79,67 @@ npm run dev               # API على :3001 والواجهة على :5173
 التفاصيل الكاملة خطوة بخطوة في [README.en.md](README.en.md)
 و[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
+## البدء السريع (10 دقائق)
+
+المتطلبات: Node.js 20+ وnpm 10+ وPostgreSQL 16 (مع امتدادَي `citext` و`pg_trgm`).
+
+1. ثبّت الاعتماديات:
+   ```bash
+   npm install
+   ```
+2. أنشئ قاعدة البيانات (كمستخدم postgres):
+   ```bash
+   createuser quiz -P
+   createdb quiz_platform -O quiz
+   psql -d quiz_platform -c 'CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pg_trgm;'
+   ```
+3. انسخ قالب البيئة وعبّئ `DATABASE_URL` و`JWT_SECRET` (ولّده بـ `openssl rand -hex 64`):
+   ```bash
+   cp .env.example .env
+   ```
+4. طبّق الترحيلات وابذر الحساب الإداري والتصنيفات وبنك الأسئلة:
+   ```bash
+   npm run migrate
+   SEED_ADMIN_PASSWORD='ChangeMe123!' npm run seed
+   ```
+5. شغّل الخادم والواجهة معًا:
+   ```bash
+   npm run dev
+   ```
+6. تحقّق من الجاهزية:
+   ```bash
+   curl http://localhost:3001/ready
+   ```
+
+**علامة النجاح:** يعيد الأمر الأخير `{"ok":true,...}`، وعند فتح <http://localhost:5173> ترى شاشة **تسجيل الدخول** بالعربية مع زر **جرّب كزائر**. سجّل بالحساب `admin` وكلمة المرور التي مرّرتها للبذر لتصل إلى لوحة الإدارة.
+
+## متغيرات البيئة
+
+القالب الكامل في [.env.example](.env.example). الأهم:
+
+| المتغير | مطلوب؟ | مثال | ماذا يكسر إن غاب |
+|---|---|---|---|
+| `DATABASE_URL` | نعم | `postgres://quiz:pw@localhost:5432/quiz_platform` | الخادم لا يقلع |
+| `JWT_SECRET` | نعم في الإنتاج (≥ 32 حرفًا) | ناتج `openssl rand -hex 64` | رفض الإقلاع في الإنتاج؛ جلسات غير آمنة في التطوير |
+| `PORT` / `HOST` | لا | `3001` / `0.0.0.0` | افتراضيات التطوير |
+| `JWT_ACCESS_TTL` / `JWT_REFRESH_TTL` | لا | `900` / `2592000` (ثوانٍ) | 15 دقيقة / 30 يومًا |
+| `BCRYPT_ROUNDS` | لا | `12` | كلفة تجزئة كلمات المرور |
+| `CORS_ORIGIN` | نعم عند فصل الواجهة أو تطبيق المتاجر | `https://your-domain.com,https://localhost,capacitor://localhost` | الواجهة أو التطبيق لا يصلان إلى API |
+| `APP_URL` | نعم لروابط البريد | `https://quiz.example.com` | روابط استعادة كلمة المرور معطوبة |
+| `MAIL_PROVIDER` / `MAIL_API_KEY` / `MAIL_FROM` | لا (`log` في التطوير) | `resend` / `re_xxx` / `Quiz <no-reply@example.com>` | لا رسائل استعادة أو تأكيد بريد |
+| `TRUST_PROXY` | نعم خلف Render/Fly/nginx | `1` | تحديد المعدل والسجلات تقرأ IP الوكيل |
+| `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` / `RATE_LIMIT_AUTH_MAX` | لا | `60000` / `120` / `10` | افتراضيات تحديد المعدل |
+| `GUEST_MODE_ENABLED` / `GUEST_MAX_QUESTIONS` | لا | `true` / `10` | وضع الزائر |
+| `JOBS_ENABLED` | لا | `true` | تعطيل المهام الخلفية (تحدٍّ شهري، انتهاء، احتفاظ، تذكيرات) |
+| `SEED_ON_BOOT` / `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` / `SEED_QUESTIONS` | لا | `true` / `admin@example.com` / … | بذر أول تشغيل على الاستضافة |
+| `METRICS_TOKEN` | لا | سلسلة عشوائية | `/metrics` غير موجود في الإنتاج بدونه |
+| `ERROR_WEBHOOK_URL` / `SENTRY_DSN` | لا | رابط Discord/Slack | لا تنبيهات عند الأعطال |
+| `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL` / `AI_DAILY_PER_USER` / `AI_DAILY_PLATFORM` | لا | `anthropic` / … / `20` / `500` | مسودات الذكاء الاصطناعي معطّلة |
+| `BACKUP_DIR` / `RETENTION_DAYS` / `BACKUP_S3_URI` | لا (لـ`scripts/backup.sh`) | `./backups` / `14` / `s3://bucket/quiz` | نسخ احتياطي محلي فقط |
+| `VITE_API_BASE` | لا (بناء الويب) | `https://api.example.com/api/v1` | الواجهة تفترض `/api/v1` على الأصل نفسه |
+| `VITE_DEMO` / `VITE_BASE` | لا (بناء الويب) | `1` / `/quiz/` | نسخة Pages التجريبية ومسار النشر الفرعي |
+| `VITE_SUPPORT_EMAIL` | لا (بناء الويب) | `support@example.com` | صفحتا المساعدة وحذف الحساب بلا بريد تواصل |
+
 ## نشر النسخة الكاملة (الخادم + قاعدة البيانات)
 
 بأمر واحد على أي خادم: `docker compose up -d --build` (ملفات `Dockerfile` و
@@ -113,3 +174,16 @@ web/src/demo/      الواجهة الخلفية داخل المتصفح لنس�
 docs/              التوثيق الكامل (بنية، قاعدة بيانات، أمان، نشر…)
 .env.example       قالب متغيرات البيئة (بدون أسرار حقيقية)
 ```
+
+## المشاكل المعروفة والمتبقي
+
+من `memory/TODO.md` (2026-09-09):
+
+- **يمنع الإصدار على المتاجر (P0):** الخادم غير منشور بعد على Render (`render.yaml`) ولم يُضبط `CORS_ORIGIN` ليشمل `https://localhost,capacitor://localhost`؛ متغيرات GitHub `MOBILE_API_BASE` و`SUPPORT_EMAIL` غير مضبوطة؛ أسرار التوقيع `ANDROID_KEYSTORE_*` و`IOS_*` غير موجودة؛ لا حسابات Google Play/Apple Developer ولا حساب تجريبي للمراجعين؛ لقطات المتجر غير جاهزة.
+- **بعد الإصدار (P1):** لا اختبار حمل على `/api/v1/attempts` بعد؛ مقاييس الاحتفاظ D1/D7 من جدول `analytics_events` غير مبنية؛ لا إشعارات Push (FCM/APNs) — التذكير الحالي محلي على الجهاز؛ digest صورة node في `Dockerfile` غير مثبّت.
+- **لاحقًا (P2):** لا MFA ولا تسجيل دخول بطرف ثالث؛ لا CAPTCHA عند التسجيل؛ محدّد المعدل في الذاكرة (يحتاج Redis عند أكثر من نسخة خادم)؛ 111 نمطًا مضمّنًا تُبقي `style-src 'unsafe-inline'` في CSP.
+- **تشغيلي:** `fastify-static` يسجّل ملفات `dist` عند الإقلاع، فابنِ الواجهة قبل تشغيل الخادم وأعد تشغيله بعد كل بناء.
+
+## الترخيص
+
+لا يوجد ملف `LICENSE` في المستودع بعد؛ على مالك المشروع اختيار ترخيص (مثل MIT أو AGPL-3.0) وإضافته قبل النشر العام أو رفع التطبيق للمتاجر — Apple تطلب ألا يتعارض الترخيص مع شروطها.

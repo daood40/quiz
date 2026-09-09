@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { get } from '../api';
-import { EmptyState, ErrorState, Spinner, fmtMs, useAsync, useStatusLabel } from '../components';
+import { get, storageGet, storageSet } from '../api';
+import { EmptyState, ErrorState, Spinner, fmtMs, useAsync, usePageMeta, useStatusLabel } from '../components';
 import { useAuth } from '../ctx';
 import { useI18n } from '../i18n';
+import { useTx } from '../i18n';
 
 interface Category {
   id: string;
@@ -22,39 +23,38 @@ interface AttemptRow {
   submitted_at: string;
   server_duration_ms: number;
 }
+interface MonthlyInfo { yearMonth: string; questionCount: number }
+interface Progress { xp: number; level: number; nextLevelAt: number; progress: number }
+interface DailyInfo { available: boolean; myAttempt: { status: string; score: number } | null }
 
 export function HomePage() {
-  const { t, pick, lang } = useI18n();
-  const [showTip, setShowTip] = useState(() => { try { return !localStorage.getItem('tipSeen'); } catch { return false; } });
-  const dismissTip = () => { setShowTip(false); try { localStorage.setItem('tipSeen', '1'); } catch { /* ignore */ } };
+  const { t, n, pick, lang } = useI18n();
+  const tx = useTx();
+  usePageMeta(t('home'), tx('metaDescHome'));
+  const [showTip, setShowTip] = useState(() => !storageGet('tipSeen'));
+  const dismissTip = () => { setShowTip(false); storageSet('tipSeen', '1'); };
   const { user } = useAuth();
   const nav = useNavigate();
   const statusLabel = useStatusLabel();
   const cats = useAsync(() => get<{ categories: Category[] }>('/categories').then((r) => r.categories), []);
   const recentQ = useAsync(() => get<{ attempts: AttemptRow[] }>('/quizzes/attempts?limit=5').then((r) => r.attempts), []);
-  const [monthly, setMonthly] = useState<{ yearMonth: string; questionCount: number } | null>(null);
-  const [progress, setProgress] = useState<{ xp: number; level: number; nextLevelAt: number; progress: number } | null>(null);
-  const [daily, setDaily] = useState<{ available: boolean; myAttempt: { status: string; score: number } | null } | null>(null);
-
-  useEffect(() => {
-    // secondary widgets: absence is a valid state (demo / not yet created), so they degrade quietly
-    void get<{ monthlyChallenge: { yearMonth: string; questionCount: number } }>('/monthly-challenges/current')
-      .then((r) => setMonthly(r.monthlyChallenge))
-      .catch(() => setMonthly(null));
-    void get<{ xp: number; level: number; nextLevelAt: number; progress: number }>('/achievements/progress')
-      .then(setProgress)
-      .catch(() => setProgress(null));
-    void get<{ available: boolean; myAttempt: { status: string; score: number } | null }>('/quizzes/daily')
-      .then(setDaily)
-      .catch(() => setDaily(null));
-  }, []);
+  // secondary widgets: a 404 (demo / not created yet) is a valid "empty" state, anything else is an error with retry
+  const monthly = useAsync<MonthlyInfo | null>(
+    () => get<{ monthlyChallenge: MonthlyInfo }>('/monthly-challenges/current').then((r) => r.monthlyChallenge).catch((e) => { if (isMissing(e)) return null; throw e; }),
+    [],
+  );
+  const progress = useAsync<Progress | null>(() => get<Progress>('/achievements/progress').catch(() => null), []);
+  const daily = useAsync<DailyInfo | null>(
+    () => get<DailyInfo>('/quizzes/daily').catch((e) => { if (isMissing(e)) return null; throw e; }),
+    [],
+  );
   const categories = cats.data;
   const recent = recentQ.data;
 
   if (!user) return <Spinner />;
 
   return (
-    <div className="stack" style={{ gap: 16 }}>
+    <div className="stack">
       {user.isGuest && (
         <div className="banner warn">
           {t('guestBanner')} <Link to="/register">{t('register')}</Link>
@@ -64,19 +64,19 @@ export function HomePage() {
         <div className="row between">
           <div>
             <h1>{t('greeting')}{lang === 'ar' ? '،' : ','} {user.displayName || user.username} 👋</h1>
-            <div className="row" style={{ gap: 8 }}>
+            <div className="row tight">
               <span className="badge primary">{t('level')} {user.level}</span>
-              <span className="badge">{user.totalPoints.toLocaleString()} {t('points')}</span>
-              <span className="badge warn">🔥 {user.currentStreak} {t('days')}</span>
+              <span className="badge">{n('points', user.totalPoints)}</span>
+              <span className="badge warn">🔥 {n('streakDays', user.currentStreak)}</span>
               {user.streakFreezes > 0 && <span className="badge">🧊 {user.streakFreezes}</span>}
             </div>
           </div>
-          <button className="btn lg on-hero" onClick={() => nav('/play')}>▶ {t('quickQuiz')}</button>
+          <button type="button" className="btn lg on-hero" onClick={() => nav('/play')}>▶ {t('quickQuiz')}</button>
         </div>
-        {progress && (
-          <div style={{ marginTop: 14 }}>
-            <div className="row between muted"><span>{t('xp')}: {progress.xp}</span><span>{t('level')} {progress.level + 1}: {progress.nextLevelAt}</span></div>
-            <div className="progress"><div style={{ width: `${progress.progress}%` }} /></div>
+        {progress.data && (
+          <div className="mt-3">
+            <div className="row between muted"><span>{t('xp')}: {progress.data.xp}</span><span>{t('level')} {progress.data.level + 1}: {progress.data.nextLevelAt}</span></div>
+            <div className="progress"><div style={{ width: `${progress.data.progress}%` }} /></div>
           </div>
         )}
       </div>
@@ -85,41 +85,43 @@ export function HomePage() {
         <div className="card">
           <h2>📅 {t('dailyChallenge')}</h2>
           <p className="muted">{t('sameForAll')}</p>
-          {daily?.myAttempt?.status === 'submitted' ? (
-            <span className="badge success">{t('playedToday')} · {daily.myAttempt.score} {t('points')}</span>
-          ) : (
-            <button className="btn" onClick={() => nav('/play?mode=daily')}>{t('start')}</button>
-          )}
+          {daily.loading ? <Spinner rows={1} /> : daily.error ? <ErrorState error={daily.error} onRetry={daily.reload} />
+            : daily.data?.myAttempt?.status === 'submitted' ? (
+              <span className="badge success">{t('playedToday')} · {n('points', daily.data.myAttempt.score)}</span>
+            ) : (
+              <button type="button" className="btn secondary" onClick={() => nav('/play?mode=daily')}>{t('playDailyChallenge')}</button>
+            )}
         </div>
         <div className="card">
           <h2>🏆 {t('monthlyChallenge')}</h2>
-          {monthly ? (
-            <>
-              <p className="muted">{monthly.yearMonth} · {monthly.questionCount} {t('questions')}</p>
-              <Link className="btn" to="/monthly">{t('start')}</Link>
-            </>
-          ) : (
-            <p className="muted">{t('noData')}</p>
-          )}
+          {monthly.loading ? <Spinner rows={1} /> : monthly.error ? <ErrorState error={monthly.error} onRetry={monthly.reload} />
+            : monthly.data ? (
+              <>
+                <p className="muted"><bdi className="ltr-id">{monthly.data.yearMonth}</bdi> · {n('questions', monthly.data.questionCount)}</p>
+                <Link className="btn secondary" to="/monthly">{t('playMonthlyChallenge')}</Link>
+              </>
+            ) : (
+              <EmptyState />
+            )}
         </div>
       </div>
 
       {showTip && (
-        <div className="banner info row between" style={{ marginBottom: 16 }}>
+        <div className="banner info row between">
           <span>💡 {t('welcomeTip')}</span>
-          <button className="btn ghost sm" onClick={dismissTip} aria-label={t('dismiss')}>✕</button>
+          <button type="button" className="btn ghost sm" onClick={dismissTip} aria-label={t('dismiss')}>✕</button>
         </div>
       )}
       <div className="card">
         <h2>{t('categories')}</h2>
         {cats.error ? <ErrorState error={cats.error} onRetry={cats.reload} /> : !categories ? (
           <Spinner />
-        ) : categories.length === 0 ? <EmptyState label={t('noCategories')} /> : (
+        ) : categories.length === 0 ? <EmptyState body={t('noCategories')} /> : (
           <div className="grid cols-3">
             {categories.filter((c) => !c.parentId).map((c, i) => (
-              <button key={c.id} className="option cat" style={{ '--cat-hue': (i * 47) % 360 } as React.CSSProperties} onClick={() => nav(`/play?category=${c.id}`)}>
+              <button type="button" key={c.id} className="option cat" style={{ '--cat-hue': (i * 47) % 360 } as React.CSSProperties} onClick={() => nav(`/play?category=${c.id}`)}>
                 <span className="cat-ico">{c.icon || '📚'}</span>
-                <span style={{ flex: 1 }}>{pick(c.name)}</span>
+                <span className="grow">{pick(c.name)}</span>
                 <span className="badge">{c.questionCount}</span>
               </button>
             ))}
@@ -132,17 +134,18 @@ export function HomePage() {
         {recentQ.error ? <ErrorState error={recentQ.error} onRetry={recentQ.reload} /> : !recent ? (
           <Spinner />
         ) : recent.length === 0 ? (
-          <EmptyState />
+          <EmptyState icon="🎯" title={t('noResultsYet')} body={t('noResultsHint')} action={{ label: t('startFirstQuiz'), to: '/play' }} />
         ) : (
           <div className="tbl-wrap"><table className="tbl">
-            <thead><tr><th scope="col">{t('mode')}</th><th scope="col">{t('score')}</th><th scope="col">{t('correct')}</th><th scope="col">{t('totalTime')}</th><th scope="col" /></tr></thead>
+            <caption className="sr-only">{t('recentResults')}</caption>
+            <thead><tr><th scope="col">{t('mode')}</th><th scope="col">{t('score')}</th><th scope="col">{t('correct')}</th><th scope="col" className="col-optional">{t('totalTime')}</th><th scope="col"><span className="sr-only">{t('reviewAnswers')}</span></th></tr></thead>
             <tbody>
               {recent.map((a) => (
                 <tr key={a.id}>
                   <td>{statusLabel(a.mode)}</td>
                   <td><strong>{a.score}</strong> / {a.max_score}</td>
                   <td>{a.correct_count}</td>
-                  <td>{a.server_duration_ms ? fmtMs(a.server_duration_ms) : '—'}</td>
+                  <td className="col-optional">{a.server_duration_ms ? fmtMs(a.server_duration_ms) : '—'}</td>
                   <td><Link to={`/review/${a.id}`}>{t('reviewAnswers')}</Link></td>
                 </tr>
               ))}
@@ -152,4 +155,9 @@ export function HomePage() {
       </div>
     </div>
   );
+}
+
+/** 404 / demo-unavailable: the widget simply has nothing to show. */
+function isMissing(e: unknown): boolean {
+  return typeof e === 'object' && e !== null && 'status' in e && ((e as { status: number }).status === 404 || (e as { code?: string }).code === 'demo_unavailable');
 }

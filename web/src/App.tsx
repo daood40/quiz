@@ -1,8 +1,8 @@
 import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { IS_DEMO, get } from './api';
-import { OfflineBanner, Spinner, ToastProvider } from './components';
-import { AuthProvider, ThemeProvider, useAuth, useTheme } from './ctx';
+import { ErrorBoundary, ErrorState, Skeleton, ToastProvider, OfflineBanner } from './components';
+import { AuthProvider, ThemeProvider, useAuth } from './ctx';
 import { I18nProvider, useI18n, type Lang, type TKey } from './i18n';
 import { ForgotPage, LoginPage, RegisterPage, VerifyEmailPage } from './pages/auth';
 import { HomePage } from './pages/home';
@@ -54,12 +54,9 @@ const GroupDetailPage = lazy(() => social().then((m) => ({ default: m.GroupDetai
 const TournamentsPage = lazy(() => social().then((m) => ({ default: m.TournamentsPage })));
 const TournamentDetailPage = lazy(() => social().then((m) => ({ default: m.TournamentDetailPage })));
 
-const PRIMARY_TABS = new Set(['/', '/play', '/leaderboard', '/stats', '/achievements']);
-
 function TopBar() {
   const { t, lang, setLang } = useI18n();
-  const { theme, toggle } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, loading, error, logout } = useAuth();
   const [unread, setUnread] = useState(0);
   const location = useLocation();
 
@@ -68,46 +65,42 @@ function TopBar() {
     void get<{ unreadCount: number }>('/notifications?limit=1').then((r) => setUnread(r.unreadCount)).catch(() => undefined);
   }, [user, location.pathname]);
 
-  if (!user) return null;
-  const links: Array<[string, string]> = IS_DEMO
-    ? [
-        ['/', t('home')], ['/play', t('play')], ['/leaderboard', t('leaderboard')],
-        ['/stats', t('stats')], ['/achievements', t('achievements')],
-      ]
-    : [
-        ['/', t('home')], ['/play', t('play')], ['/leaderboard', t('leaderboard')],
-        ['/challenges', t('challenges')], ['/tournaments', t('tournaments')], ['/groups', t('groups')], ['/friends', t('friends')],
-        ['/stats', t('stats')], ['/achievements', t('achievements')],
-      ];
+  // the shell stays visible while the session resolves (or failed to), so the page never collapses to a lone spinner
+  if (!user && !loading && !error) return null;
+  // primary destinations (`pri`) live in the bottom tab bar on phones and only show here on wide screens;
+  // the top bar itself carries the four social destinations + admin
+  const primary: Array<[string, string]> = [
+    ['/', t('home')], ['/play', t('play')], ['/leaderboard', t('leaderboard')], ['/stats', t('stats')], ['/achievements', t('achievements')],
+  ];
+  const secondary: Array<[string, string]> = IS_DEMO
+    ? []
+    : [['/challenges', t('challenges')], ['/tournaments', t('tournaments')], ['/groups', t('groups')], ['/friends', t('friends')]];
   return (
     <header className="topbar">
       <Link to="/" className="brand">🧠 <span>{t('appName')}</span></Link>
-      <nav aria-label={t('mainNav')}>
-        {links.map(([to, label]) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            // primary destinations move to the bottom tab bar on phones
-            className={({ isActive }) => `${PRIMARY_TABS.has(to) ? 'pri' : ''} ${isActive ? 'active' : ''}`.trim()}
-          >
-            {label}
-          </NavLink>
-        ))}
-        {user.role !== 'user' && !user.isGuest && (
-          <NavLink to="/admin" className={({ isActive }) => (isActive ? 'active' : '')}>{t('admin')}</NavLink>
-        )}
-      </nav>
-      <span className="spacer" />
-      <NavLink to="/notifications" aria-label={t('notifications')} className="btn ghost sm">
-        🔔{unread > 0 && <span className="badge danger">{unread}</span>}
-      </NavLink>
-      <button className="btn ghost sm" onClick={() => setLang((lang === 'en' ? 'ar' : 'en') as Lang)} aria-label={t('language')}>
+      {user && (
+        <nav aria-label={t('mainNav')}>
+          {primary.map(([to, label]) => (
+            <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `pri ${isActive ? 'active' : ''}`.trim()}>{label}</NavLink>
+          ))}
+          {secondary.map(([to, label]) => (
+            <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>
+          ))}
+          {user.role !== 'user' && !user.isGuest && (
+            <NavLink to="/admin" className={({ isActive }) => (isActive ? 'active' : '')}>{t('admin')}</NavLink>
+          )}
+        </nav>
+      )}
+      {user && (
+        <NavLink to="/notifications" aria-label={t('notifications')} className="btn ghost sm">
+          🔔{unread > 0 && <span className="badge danger">{unread}</span>}
+        </NavLink>
+      )}
+      <button type="button" className="btn ghost sm" onClick={() => setLang((lang === 'en' ? 'ar' : 'en') as Lang)} aria-label={t('language')}>
         {lang === 'en' ? 'ع' : 'EN'}
       </button>
-      <button className="btn ghost sm" onClick={toggle} aria-label={t('theme')}>{theme === 'light' ? '🌙' : '☀️'}</button>
-      <NavLink to="/settings" className="btn ghost sm" aria-label={t('settings')}>⚙️</NavLink>
-      <button className="btn secondary sm" onClick={() => void logout()}>{t('logout')}</button>
+      {user && <NavLink to="/settings" className="btn ghost sm" aria-label={t('settings')}>⚙️</NavLink>}
+      {user && <button type="button" className="btn secondary sm" onClick={() => void logout()}>{t('logout')}</button>}
     </header>
   );
 }
@@ -115,8 +108,8 @@ function TopBar() {
 /** Mobile bottom tab bar (≤640px): app-like primary navigation. */
 function TabBar() {
   const { t } = useI18n();
-  const { user } = useAuth();
-  if (!user) return null;
+  const { user, loading, error } = useAuth();
+  if (!user && !loading && !error) return null;
   const tabs: Array<[string, string, string]> = [
     ['/', '🏠', t('home')],
     ['/play', '🎯', t('play')],
@@ -136,9 +129,35 @@ function TabBar() {
   );
 }
 
+/** Skeleton while the session resolves; after 6s tells the user it is still working (slow network, not a hang). */
+function AuthPending() {
+  const { t } = useI18n();
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const id = window.setTimeout(() => setSlow(true), 6_000);
+    return () => window.clearTimeout(id);
+  }, []);
+  return (
+    <div className="route-fallback" aria-busy="true">
+      <Skeleton />
+      <p className="muted center" role="status">{slow ? t('stillLoading') : t('loadingApp')}</p>
+    </div>
+  );
+}
+
 function Protected({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth();
-  if (loading) return <span className="spin" />;
+  const { user, loading, error, refreshUser } = useAuth();
+  const { t } = useI18n();
+  if (loading) return <AuthPending />;
+  if (error && !user) {
+    // network / server failure: the tokens are kept, the user only needs to retry
+    return (
+      <div className="card">
+        <ErrorState error={error} onRetry={() => void refreshUser()} />
+        <p className="muted center">{t('sessionKept')}</p>
+      </div>
+    );
+  }
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
@@ -156,7 +175,7 @@ function UpdateBanner() {
   return (
     <div className="banner info update-banner" role="status">
       <span>🆕 {t('updateAvailable')}</span>
-      <button className="btn sm" onClick={() => window.dispatchEvent(new Event('sw:reload'))}>{t('reload')}</button>
+      <button type="button" className="btn sm" onClick={() => window.dispatchEvent(new Event('sw:reload'))}>{t('reload')}</button>
     </div>
   );
 }
@@ -164,6 +183,7 @@ function UpdateBanner() {
 function Shell() {
   const { user } = useAuth();
   const { t } = useI18n();
+  const { pathname } = useLocation();
   return (
     <div className="app-shell">
       <RouteMeta />
@@ -178,7 +198,9 @@ function Shell() {
         </div>
       )}
       <main className="main" id="main" tabIndex={-1}>
-        <Suspense fallback={<div className="center" style={{ padding: 40 }}><Spinner /></div>}>
+        {/* keyed on the path so a crash on one screen clears when the user navigates away */}
+        <ErrorBoundary key={pathname}>
+        <Suspense fallback={<div className="route-fallback"><Skeleton /></div>}>
         <Routes>
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -209,6 +231,7 @@ function Shell() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
         </Suspense>
+        </ErrorBoundary>
       </main>
       <Footer />
       <TabBar />

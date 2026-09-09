@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Route, Routes } from 'react-router-dom';
+import { NavLink, Route, Routes, useSearchParams } from 'react-router-dom';
 import { api, get, patch, post } from '../api';
 import { EmptyState, ErrorState, Field, Spinner, StatBox, ToggleChip, useAction, useAsync, useStatusLabel, useToast } from '../components';
 import { useAuth } from '../ctx';
@@ -16,13 +16,14 @@ function useDebounced<T>(value: T, ms = 300): T {
 }
 
 function Pager({ offset, limit, total, onChange }: { offset: number; limit: number; total: number; onChange: (o: number) => void }) {
-  const { t } = useI18n();
+  const { t, dir } = useI18n();
+  const [prev, next] = dir === 'rtl' ? ['›', '‹'] : ['‹', '›'];
   if (total <= limit) return null;
   return (
-    <div className="row" style={{ marginTop: 10 }}>
-      <button className="btn secondary sm" disabled={offset === 0} onClick={() => onChange(Math.max(0, offset - limit))} aria-label={t('prevPage')}>‹</button>
+    <div className="row mt-2">
+      <button type="button" className="btn secondary sm" disabled={offset === 0} onClick={() => onChange(Math.max(0, offset - limit))} aria-label={t('prevPage')}>{prev}</button>
       <span className="muted">{offset + 1}–{Math.min(offset + limit, total)} / {total}</span>
-      <button className="btn secondary sm" disabled={offset + limit >= total} onClick={() => onChange(offset + limit)} aria-label={t('nextPage')}>›</button>
+      <button type="button" className="btn secondary sm" disabled={offset + limit >= total} onClick={() => onChange(offset + limit)} aria-label={t('nextPage')}>{next}</button>
     </div>
   );
 }
@@ -61,22 +62,40 @@ interface AdminQuestion {
   content: Record<string, unknown>; qualityScore: number; createdAt: string;
 }
 
+/** List filters live in the URL (status / search / offset) so reloads, back and shared links keep them. */
+function useListParams(defaults: Record<string, string>) {
+  const [params, setParams] = useSearchParams();
+  const read = (k: string) => params.get(k) ?? defaults[k] ?? '';
+  const write = (patch: Record<string, string | number>, resetOffset = true) => setParams((prev) => {
+    const next = new URLSearchParams(prev);
+    for (const [k, v] of Object.entries(patch)) {
+      const val = String(v);
+      if (val === '' || val === (defaults[k] ?? '')) next.delete(k); else next.set(k, val);
+    }
+    if (resetOffset) next.delete('offset');
+    return next;
+  }, { replace: true });
+  return { read, write, offset: Math.max(0, Number(params.get('offset')) || 0) };
+}
+
 function Questions() {
   const { t, pick } = useI18n();
   const statusLabel = useStatusLabel();
-  const [status, setStatus] = useState('pending_review');
-  const [searchInput, setSearchInput] = useState('');
+  const { read, write, offset } = useListParams({ status: 'pending_review' });
+  const status = read('status');
+  const searchInput = read('search');
   const search = useDebounced(searchInput);
-  const [offset, setOffset] = useState(0);
+  const setOffset = (o: number) => write({ offset: o }, false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const limit = 25;
   const { data, error, reload } = useAsync(() => {
     const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-    if (status) params.set('status', status);
+    if (status && status !== 'all') params.set('status', status);
     if (search) params.set('search', search);
-    setSelected(new Set());
     return get<{ total: number; questions: AdminQuestion[] }>(`/admin/questions?${params}`);
   }, [status, search, offset]);
+  // a new page of results invalidates the bulk selection
+  useEffect(() => { setSelected(new Set()); }, [data]);
 
   const [act, acting] = useAction(async (id: string, newStatus: string) => {
     await post(`/admin/questions/${id}/status`, { status: newStatus });
@@ -91,21 +110,22 @@ function Questions() {
   return (
     <div className="stack">
       <div className="row">
-        <select aria-label={t('status')} value={status} onChange={(e) => { setStatus(e.target.value); setOffset(0); }} style={{ maxWidth: 180 }}>
-          <option value="">{t('allStatuses')}</option>
+        <select aria-label={t('status')} value={status} onChange={(e) => write({ status: e.target.value === '' ? 'all' : e.target.value })} style={{ maxWidth: 180 }}>
+          <option value="all">{t('allStatuses')}</option>
           {['draft', 'pending_review', 'approved', 'rejected', 'archived'].map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
         </select>
-        <input type="search" aria-label={t('search')} placeholder={t('searchPlaceholder')} value={searchInput} onChange={(e) => { setSearchInput(e.target.value); setOffset(0); }} style={{ maxWidth: 240 }} />
+        <input type="search" aria-label={t('search')} placeholder={t('searchPlaceholder')} value={searchInput} onChange={(e) => write({ search: e.target.value })} style={{ maxWidth: 240 }} />
         {selected.size > 0 && (
           <>
-            <button className="btn sm" onClick={() => void bulk('approved')} disabled={busy}>{t('approve')} {selected.size}</button>
-            <button className="btn danger sm" onClick={() => void bulk('rejected')} disabled={busy}>{t('reject')} {selected.size}</button>
+            <button type="button" className="btn sm" onClick={() => void bulk('approved')} disabled={busy}>{t('approve')} {selected.size}</button>
+            <button type="button" className="btn danger sm" onClick={() => void bulk('rejected')} disabled={busy}>{t('reject')} {selected.size}</button>
           </>
         )}
       </div>
       <div className="card">
         {error ? <ErrorState error={error} onRetry={reload} /> : !data ? <Spinner /> : data.questions.length === 0 ? <EmptyState label={t('noResults')} /> : (
           <div className="tbl-wrap"><table className="tbl">
+            <caption className="sr-only">{t('adminQuestions')}</caption>
             <thead><tr><th scope="col"><span className="sr-only">{t('actions')}</span></th><th scope="col">{t('prompt')}</th><th scope="col">{t('type')}</th><th scope="col">{t('difficulty')}</th><th scope="col">{t('language')}</th><th scope="col">{t('quality')}</th><th scope="col">{t('status')}</th><th scope="col">{t('actions')}</th></tr></thead>
             <tbody>
               {data.questions.map((q) => (
@@ -119,9 +139,9 @@ function Questions() {
                   <td><span className={`badge ${q.status === 'approved' ? 'success' : q.status === 'rejected' ? 'danger' : 'warn'}`}>{statusLabel(q.status)}</span></td>
                   <td>
                     <div className="row tight">
-                      {q.status !== 'approved' && <button className="btn sm" onClick={() => void act(q.id, 'approved')} disabled={busy} aria-label={t('approve')} title={t('approve')}>✓</button>}
-                      {q.status !== 'rejected' && <button className="btn danger sm" onClick={() => void act(q.id, 'rejected')} disabled={busy} aria-label={t('reject')} title={t('reject')}>✗</button>}
-                      {q.status !== 'archived' && <button className="btn secondary sm" onClick={() => void act(q.id, 'archived')} disabled={busy} aria-label={t('archive')} title={t('archive')}>🗄</button>}
+                      {q.status !== 'approved' && <button type="button" className="btn sm" onClick={() => void act(q.id, 'approved')} disabled={busy} aria-label={t('approve')} title={t('approve')}>✓</button>}
+                      {q.status !== 'rejected' && <button type="button" className="btn danger sm" onClick={() => void act(q.id, 'rejected')} disabled={busy} aria-label={t('reject')} title={t('reject')}>✗</button>}
+                      {q.status !== 'archived' && <button type="button" className="btn secondary sm" onClick={() => void act(q.id, 'archived')} disabled={busy} aria-label={t('archive')} title={t('archive')}>🗄</button>}
                     </div>
                   </td>
                 </tr>
@@ -180,15 +200,16 @@ function ImportExport() {
               }} />
           </label>
         </div>
-        <textarea aria-label={t('importQuestions')} rows={8} style={{ marginTop: 10, fontFamily: 'monospace', fontSize: 12 }}
+        <textarea aria-label={t('importQuestions')} rows={8} className="mono mt-2"
           placeholder={format === 'csv' ? 'type,category_slug,difficulty,prompt_en,options,correct_answer\nmultiple_choice,science,easy,Question?,A|B|C,A' : '[{"type":"multiple_choice", ...}]'}
           value={text} onChange={(e) => setText(e.target.value)} />
-        <button className="btn" style={{ marginTop: 8 }} onClick={() => void doImport()} disabled={importing || !text.trim()}>{t('validateImport')}</button>
+        <button type="button" className="btn mt-2" onClick={() => void doImport()} disabled={importing || !text.trim()}>{t('validateImport')}</button>
         {result && (
-          <div style={{ marginTop: 10 }} role="status">
+          <div className="mt-2" role="status">
             <p><span className="badge success">{t('imported')}: {result.imported}</span> <span className="badge">{t('duplicates')}: {result.duplicates ?? 0}</span> <span className="badge danger">{t('errors')}: {result.totalErrors}</span></p>
             {result.errors.length > 0 && (
               <div className="tbl-wrap"><table className="tbl">
+                <caption className="sr-only">{t('errors')}</caption>
                 <thead><tr><th scope="col">{t('row')}</th><th scope="col">{t('field')}</th><th scope="col">{t('error')}</th></tr></thead>
                 <tbody>{result.errors.slice(0, 30).map((e, i) => <tr key={i}><td>{e.row}</td><td>{e.field}</td><td>{e.error}</td></tr>)}</tbody>
               </table></div>
@@ -200,7 +221,7 @@ function ImportExport() {
         <h2>{t('export')}</h2>
         <div className="row">
           {(['json', 'csv'] as const).map((f) => (
-            <button key={f} className="btn secondary" onClick={() => void doExport(f)} disabled={exporting}>⬇ {f.toUpperCase()}</button>
+            <button type="button" key={f} className="btn secondary" onClick={() => void doExport(f)} disabled={exporting}>⬇ {f.toUpperCase()}</button>
           ))}
         </div>
       </div>
@@ -213,9 +234,10 @@ interface AdminUser { id: string; username: string; email: string; role: string;
 function Users() {
   const { t } = useI18n();
   const statusLabel = useStatusLabel();
-  const [searchInput, setSearchInput] = useState('');
+  const { read, write, offset } = useListParams({});
+  const searchInput = read('search');
   const search = useDebounced(searchInput);
-  const [offset, setOffset] = useState(0);
+  const setOffset = (o: number) => write({ offset: o }, false);
   const limit = 25;
   const { data, error, reload } = useAsync(() => {
     const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
@@ -234,17 +256,18 @@ function Users() {
 
   return (
     <div className="card">
-      <input type="search" aria-label={t('searchUsers')} placeholder={t('searchUsers')} value={searchInput} onChange={(e) => { setSearchInput(e.target.value); setOffset(0); }} style={{ maxWidth: 260, marginBottom: 10 }} />
+      <input type="search" aria-label={t('searchUsers')} placeholder={t('searchUsers')} value={searchInput} onChange={(e) => write({ search: e.target.value })} className="mb-2" style={{ maxWidth: 260 }} />
       {error ? <ErrorState error={error} onRetry={reload} /> : !data ? <Spinner /> : data.users.length === 0 ? <EmptyState label={t('noResults')} /> : (
         <div className="tbl-wrap"><table className="tbl">
+          <caption className="sr-only">{t('adminUsers')}</caption>
           <thead><tr><th scope="col">{t('user')}</th><th scope="col">{t('email')}</th><th scope="col">{t('role')}</th><th scope="col">{t('status')}</th><th scope="col">{t('level')}</th><th scope="col">{t('points')}</th><th scope="col">{t('attempts')}</th><th scope="col">{t('actions')}</th></tr></thead>
           <tbody>
             {data.users.map((u) => (
               <tr key={u.id}>
-                <td><strong>{u.username}</strong></td>
-                <td className="muted">{u.email}</td>
+                <td><strong><bdi className="ltr-id">{u.username}</bdi></strong></td>
+                <td className="muted"><bdi className="ltr-id">{u.email}</bdi></td>
                 <td>
-                  <select aria-label={`${t('role')}: ${u.username}`} value={u.role} onChange={(e) => void setRole(u.id, e.target.value)} disabled={busy} style={{ padding: '4px 6px', fontSize: 13 }}>
+                  <select aria-label={`${t('role')}: ${u.username}`} value={u.role} onChange={(e) => void setRole(u.id, e.target.value)} disabled={busy} className="select-sm">
                     {['user', 'moderator', 'editor', 'admin', 'super_admin'].map((r) => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </td>
@@ -256,10 +279,10 @@ function Users() {
                   <div className="row tight">
                     {u.status === 'active'
                       ? <>
-                          <button className="btn secondary sm" onClick={() => void setStatus(u.id, 'suspended')} disabled={busy}>{t('suspend')}</button>
-                          <button className="btn danger sm" onClick={() => void setStatus(u.id, 'banned')} disabled={busy}>{t('ban')}</button>
+                          <button type="button" className="btn secondary sm" onClick={() => void setStatus(u.id, 'suspended')} disabled={busy}>{t('suspend')}</button>
+                          <button type="button" className="btn danger sm" onClick={() => void setStatus(u.id, 'banned')} disabled={busy}>{t('ban')}</button>
                         </>
-                      : <button className="btn sm" onClick={() => void setStatus(u.id, 'active')} disabled={busy}>{t('unban')}</button>}
+                      : <button type="button" className="btn sm" onClick={() => void setStatus(u.id, 'active')} disabled={busy}>{t('unban')}</button>}
                   </div>
                 </td>
               </tr>
@@ -295,11 +318,11 @@ function Reports() {
             <div key={r.id} className="list-row">
               <div>
                 <strong>{pick(r.prompt)}</strong>
-                <p className="muted" style={{ margin: 0 }}>⚑ {reasonKey[r.reason] ? t(reasonKey[r.reason]) : r.reason} — {r.details || t('noDetails')} · {t('by')} {r.reporter ?? t('anonymous')}</p>
+                <p className="muted m-0">⚑ {reasonKey[r.reason] ? t(reasonKey[r.reason]) : r.reason} — {r.details || t('noDetails')} · {t('by')} {r.reporter ?? t('anonymous')}</p>
               </div>
               <div className="row tight">
-                <button className="btn sm" onClick={() => void resolve(r.id, 'resolved')} disabled={resolving}>{t('resolve')}</button>
-                <button className="btn secondary sm" onClick={() => void resolve(r.id, 'dismissed')} disabled={resolving}>{t('dismissReport')}</button>
+                <button type="button" className="btn sm" onClick={() => void resolve(r.id, 'resolved')} disabled={resolving}>{t('resolve')}</button>
+                <button type="button" className="btn secondary sm" onClick={() => void resolve(r.id, 'dismissed')} disabled={resolving}>{t('dismissReport')}</button>
               </div>
             </div>
           ))}
@@ -324,17 +347,18 @@ function Suspicious() {
     <div className="card">
       {data.attempts.length === 0 ? <EmptyState label={t('noFlagged')} /> : (
         <div className="tbl-wrap"><table className="tbl">
+          <caption className="sr-only">{t('antiCheat')}</caption>
           <thead><tr><th scope="col">{t('user')}</th><th scope="col">{t('mode')}</th><th scope="col">{t('score')}</th><th scope="col">{t('flags')}</th><th scope="col">{t('suspicion')}</th><th scope="col">{t('actions')}</th></tr></thead>
           <tbody>
             {data.attempts.map((a) => (
               <tr key={a.id}>
-                <td>{a.username}</td><td>{statusLabel(a.mode)}</td><td>{a.score}/{a.max_score}</td>
-                <td>{(a.flags ?? []).map((f, i) => <span key={i} className="badge danger" style={{ margin: 2 }}>{f.kind}</span>)}</td>
+                <td><bdi className="ltr-id">{a.username}</bdi></td><td>{statusLabel(a.mode)}</td><td>{a.score}/{a.max_score}</td>
+                <td>{(a.flags ?? []).map((f, i) => <span key={i} className="badge danger m-1">{f.kind}</span>)}</td>
                 <td><span className="badge warn">{a.suspicion}</span></td>
                 <td>
                   <div className="row tight">
-                    <button className="btn sm" onClick={() => void act(a.id, 'cleared')} disabled={acting}>{t('clear')}</button>
-                    <button className="btn secondary sm" onClick={() => void act(a.id, 'under_review')} disabled={acting}>{t('reviewAction')}</button>
+                    <button type="button" className="btn sm" onClick={() => void act(a.id, 'cleared')} disabled={acting}>{t('clear')}</button>
+                    <button type="button" className="btn secondary sm" onClick={() => void act(a.id, 'under_review')} disabled={acting}>{t('reviewAction')}</button>
                   </div>
                 </td>
               </tr>
@@ -347,7 +371,7 @@ function Suspicious() {
 }
 
 const NUM_KEYS = ['defaultQuestionTimeSec', 'defaultQuizSize', 'xpPerCorrect', 'xpQuizCompletion', 'xpPerLevel', 'dailyQuizLimit', 'guestMaxQuestions', 'leaderboardCacheTtlSec', 'antiCheatMinAnswerMs', 'speedBonusMaxPercent'] as const;
-const BOOL_KEYS = ['speedBonusEnabled', 'guestModeEnabled', 'registrationEnabled', 'maintenanceMode'] as const;
+const BOOL_KEYS = ['speedBonusEnabled', 'guestModeEnabled', 'registrationEnabled', 'maintenanceMode', 'aiEnabled'] as const;
 const LIMITS: Record<string, [number, number]> = {
   defaultQuestionTimeSec: [5, 600], defaultQuizSize: [1, 100], xpPerCorrect: [0, 1000], xpQuizCompletion: [0, 5000], xpPerLevel: [10, 100000],
   dailyQuizLimit: [0, 1000], guestMaxQuestions: [1, 100], leaderboardCacheTtlSec: [0, 3600], antiCheatMinAnswerMs: [0, 60000], speedBonusMaxPercent: [0, 200],
@@ -379,12 +403,12 @@ function AdminSettings() {
           );
         })}
       </div>
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row mt-3">
         {BOOL_KEYS.map((k) => (
           <ToggleChip key={k} checked={Boolean(settings[k])} onChange={(v) => setSettings((s) => ({ ...s!, [k]: v }))}>{t(`s_${k}` as TKey)}</ToggleChip>
         ))}
       </div>
-      <button className="btn" type="submit" style={{ marginTop: 14 }} disabled={saving || invalid}>{t('saveSettings')}</button>
+      <button className="btn mt-3" type="submit" disabled={saving || invalid}>{t('saveSettings')}</button>
     </form>
   );
 }
@@ -435,7 +459,7 @@ function AiDrafts() {
           <button className="btn" type="submit" disabled={generating || !s.enabled || !form.categoryId}>{t('aiGenerate')}</button>
         </form>
         {result && (
-          <p role="status" style={{ marginTop: 10 }}>
+          <p role="status" className="mt-2">
             <span className="badge success">{t('aiDrafted')}: {result.drafted}</span> <span className="badge">{t('errors')}: {result.errors.length}</span>
           </p>
         )}
@@ -455,7 +479,7 @@ export function AdminPage() {
   return (
     <div>
       <h1>🛠 {t('admin')}</h1>
-      <nav className="row" style={{ marginBottom: 14 }} aria-label={t('admin')}>
+      <nav className="row mb-3" aria-label={t('admin')}>
         {tabs.map(([path, label]) => (
           <NavLink key={path} to={`/admin/${path}`} end className={({ isActive }) => `chip ${isActive ? 'selected' : ''}`}>{t(label)}</NavLink>
         ))}

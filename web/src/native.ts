@@ -20,13 +20,17 @@ export async function initNative(): Promise<void> {
     import('@capacitor/splash-screen'),
   ]);
 
+  // no data-theme = "follow system": the OS preference decides
+  const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)');
   const applyBar = () => {
-    const dark = document.documentElement.dataset.theme === 'dark';
+    const explicit = document.documentElement.dataset.theme;
+    const dark = explicit ? explicit === 'dark' : systemDark?.matches === true;
     void StatusBar.setStyle({ style: dark ? Style.Dark : Style.Light }).catch(() => undefined);
     if (PLATFORM === 'android') void StatusBar.setBackgroundColor({ color: dark ? '#0b1020' : '#f5f6fa' }).catch(() => undefined);
   };
   applyBar();
   new MutationObserver(applyBar).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  systemDark?.addEventListener?.('change', applyBar);
 
   void App.addListener('backButton', ({ canGoBack }) => {
     if (canGoBack && window.location.pathname !== '/') window.history.back();

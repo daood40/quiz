@@ -81,29 +81,79 @@ Actions → **Mobile (Android AAB · iOS)** → Run workflow → نزّل الأ
 - لقطات: iPhone 6.7" (1290×2796) و6.5" (1284×2778) إلزامية؛ iPad 13" (2064×2752) إن دعمت iPad (المشروع يدعمه؛ يمكنك إزالة iPad من Xcode → Deployment Info لتفادي لقطاته).
 
 ## 4) نصوص المتجر (AR/EN)
-**الاسم:** Quiz Platform — منصة الأسئلة
-**العنوان الفرعي (iOS، ≤30):** العب، نافس، وتصدّر / Play, compete, climb
-**وصف قصير (Play، ≤80):** لعبة أسئلة ثنائية اللغة: 80 نوع سؤال، تحديات يومية، ولوحة صدارة.
+> نسختان مكتوبتان لا مترجمتان. الحدود: الاسم ≤30، العنوان الفرعي (iOS) ≤30، الوصف القصير (Play) ≤80، الوصف الكامل ≤4000، الكلمات المفتاحية (iOS) ≤100 حرفًا بلا مسافات بعد الفواصل، ملاحظات الإصدار ≤500 (Play). لا «الأفضل» ولا «رقم 1» ولا سعر ولا ذكر منافس.
 
-**الوصف الكامل (AR):**
-منصة أسئلة ومسابقات بالعربية والإنجليزية. اختر التصنيف والصعوبة، والعب جولات موقّتة أو تدريبًا هادئًا، وتحدَّ أصدقاءك في التحديات والبطولات، وتصدّر لوحة المتصدرين الأسبوعية.
-• 80 نوع سؤال: اختيار، صح/خطأ، ترتيب، مطابقة، كلمات متقاطعة، حسابات، والمزيد.
-• تحدٍّ يومي واحد للجميع، وتحدٍّ شهري.
-• مساعدات: 50:50، وقت إضافي، اسأل الجمهور.
-• إحصاءات دقيقة، إنجازات، سلاسل يومية، ومشاركة بطاقة النتيجة.
-• وضع داكن، خط كبير، تحكّم بالصوت والاهتزاز، ودعم كامل للغة العربية.
-• بلا إعلانات وبلا تتبّع. حذف الحساب من الإعدادات في أي وقت.
+### العربية
+**الاسم (29/30):** منصة الأسئلة — مسابقات ثقافية
+**العنوان الفرعي (iOS، 18/30):** العب، نافس، وتصدّر
+**الوصف القصير (Play، 77/80):** اختبارات بالعربية والإنجليزية: تحدٍّ يومي، مسابقات مع الأصدقاء، ولوحة متصدرين
 
-**Full description (EN):**
-A bilingual (Arabic/English) quiz game. Pick a category and difficulty, play timed rounds or calm practice, challenge friends in duels and tournaments, and climb the weekly leaderboard.
-• 80 question types: choice, true/false, ordering, matching, crosswords, calculations and more.
-• One daily quiz for everyone, plus a monthly challenge.
-• Power-ups: 50:50, extra time, ask the audience.
-• Detailed statistics, achievements, daily streaks and shareable result cards.
-• Dark mode, large text, sound and haptics controls, full right-to-left support.
-• No ads, no tracking. Delete your account from Settings at any time.
+**الوصف الكامل (1406/4000):**
+```text
+تحب الأسئلة وتريد جولة تختبر معلوماتك في دقيقتين؟ منصة الأسئلة تمنحك اختبارات بالعربية والإنجليزية، وتحديًا يوميًا بالأسئلة نفسها للجميع، ومسابقات مع أصدقائك، وترتيبًا عالميًا يحكّمه الخادم لا الجهاز.
 
-**الكلمات المفتاحية (iOS، ≤100 حرف):** quiz,trivia,أسئلة,مسابقات,ثقافة,challenge,brain,العاب ذكاء,leaderboard
+للاعب الفردي الذي يريد جولة سريعة، وللأصدقاء الذين يريدون التنافس بعدل. ليس تطبيق تعليم منهجي.
+
+• العب بالطريقة التي تناسبك: تدريب هادئ بلا وقت مع الشرح، أو جولات موقّتة بمكافأة سرعة، أو وضع البقاء حيث تنهيك إجابة واحدة خاطئة.
+• 80 نوع سؤال حتى لا تملّ: اختيار، صح أو خطأ، ترتيب، مطابقة، كلمات متقاطعة، حسابات، تحديد موقع على صورة، وغيرها.
+• تحدٍّ يومي واحد للجميع، وتحدٍّ شهري بترتيب مستقل.
+• تحدَّ أصدقاءك برمز مشاركة على الأسئلة نفسها، وأنشئ مجموعات، وشارك في بطولات إقصائية.
+• مساعدات عند الحاجة: 50:50، 20 ثانية إضافية، واسأل الجمهور بتوزيع حقيقي لإجابات اللاعبين.
+• تابع تقدّمك: نقاط خبرة ومستويات، سلسلة يومية مع حماية، إنجازات، وإحصاءات لكل تصنيف تُظهر أين تتفوّق وأين تحتاج تدريبًا.
+• اللعب النظيف مضمون: الخادم يختار الأسئلة ويحسب الوقت والنقاط، وأي محاولة تلاعب تُحجب من الترتيب.
+• واجهة عربية كاملة من اليمين إلى اليسار، وضع داكن، خط كبير، وتحكّم بالصوت والاهتزاز.
+• راجع أخطاءك وأعد لعبها، واحفظ الأسئلة التي تريد العودة إليها.
+
+بلا إعلانات وبلا تتبّع: لا نجمع إلا ما يلزم لتشغيل حسابك، ويمكنك تنزيل بياناتك أو حذف حسابك من الإعدادات في أي وقت. جرّب كزائر بلا تسجيل، وأنشئ حسابًا حين تريد حفظ تقدّمك.
+
+بعد التثبيت: اضغط «جرّب كزائر»، ثم «اختبار اليوم»، وستحصل على نتيجتك الأولى خلال دقيقتين.
+```
+
+**الكلمات المفتاحية (iOS، 75/100):** `أسئلة,مسابقات,ثقافة عامة,تحدي,ألعاب ذكاء,اختبار,معلومات,ترفيه,اسئلة,متصدرين`
+
+**ملاحظات الإصدار (257/500):**
+```text
+الإصدار الأول على المتاجر:
+جديد: 80 نوع سؤال بالعربية والإنجليزية، تحدٍّ يومي وشهري، أصدقاء ومجموعات وبطولات.
+جديد: مشاركة بطاقة النتيجة من لوحة النظام، اهتزاز عند الإجابة، وتذكير يومي اختياري.
+جديد: وضع داكن وخط كبير ودعم كامل للاتجاه من اليمين إلى اليسار.
+```
+
+### English
+**Title (29/30):** Quiz Platform: Trivia Quizzes
+**Subtitle (iOS, 20/30):** Play, compete, climb
+**Short description (Play, 68/80):** Arabic & English quizzes: daily challenge, friends and a leaderboard
+
+**Full description (1848/4000):**
+```text
+Want a two-minute round that actually tests what you know? Quiz Platform gives you quizzes in Arabic and English, one daily challenge with the same questions for everyone, matches against your friends, and a global ranking refereed by the server, not your phone.
+
+Built for solo players who want a quick round and for friends who want a fair contest. It is not a curriculum or study app.
+
+• Play your way: calm practice with no timer and full explanations, timed rounds with a speed bonus, or survival mode where one wrong answer ends the run.
+• 80 question types so it never gets stale: multiple choice, true/false, ordering, matching, crosswords, calculations, spot-the-location on an image and more.
+• One daily quiz for everyone, plus a monthly challenge with its own ranking.
+• Challenge friends with a share code on the exact same questions, create groups, and enter knockout tournaments.
+• Power-ups when you need them: 50:50, 20 extra seconds, and ask the audience with a real distribution of other players' picks.
+• Track your progress: XP and levels, a daily streak with freezes, achievements, and per-category statistics that show where you shine and where to practise.
+• Fair play by design: the server picks the questions, keeps the time and scores every answer; tampering is hidden from rankings.
+• Full right-to-left Arabic interface, dark mode, large text, and sound and haptics controls.
+• Review your mistakes and replay them, and save questions you want to come back to.
+
+No ads and no tracking: we collect only what your account needs, and you can download your data or delete your account from Settings at any time. Try it as a guest without signing up, and create an account when you want to keep your progress.
+
+After installing: tap "Try as a guest", then "Daily quiz", and you will have your first score within two minutes.
+```
+
+**Keywords (iOS, 93/100):** `trivia,quiz,brain,knowledge,challenge,leaderboard,arabic,general knowledge,daily,friends,game`
+
+**Release notes (298/500):**
+```text
+First store release:
+New: 80 question types in Arabic and English, daily and monthly challenges, friends, groups and tournaments.
+New: share your result card from the system share sheet, haptic feedback on answers, optional daily reminder.
+New: dark mode, large text and full right-to-left support.
+```
 
 ## 5) القوانين واللوائح — ما يغطيه المشروع
 - **GDPR/UK GDPR/CCPA:** سياسة خصوصية واضحة، تصدير البيانات (`/users/me/export`)، حذف الحساب فورًا، لا بيع بيانات، الحد الأدنى من البيانات، تشفير النقل والسكون، الاحتفاظ محدود (ضيوف 30 يومًا، سجلات 30 يومًا).

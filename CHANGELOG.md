@@ -4,6 +4,21 @@ All notable changes to QUIZ PLATFORM. Format: [Keep a Changelog](https://keepach
 
 ## [Unreleased]
 
+### 121-skill pass (2026-09-09) — server hardening, Arabic content, design v5, tests
+- **Server security/data**: `uuidParam`/`isUuid` on every `:id` route (malformed ids are 400/404, never 500); `intQuery` bounds every `limit`/`offset`; login lockout window is anchored at the first failure (10 failures → one 15-minute lock, never extended by an attacker); usernames unique case-insensitively (migration 006 + `lower()` lookups); refresh-token reuse revokes every session; `retry-after` on 429; `/metrics` fails closed in production without `METRICS_TOKEN`; router-level errors (414) use the standard error envelope without echoing the URL.
+- **Privacy**: account deletion now removes bookmarks, friendships, group memberships, notifications, achievements, analytics and token rows, blanks the IP in audit logs and scrubs the old username from cached leaderboard snapshots; legal pages state exactly what the code retains (analytics 180 d, audit 400 d, guests 30 d, backups 14 d).
+- **AI gateway**: `aiEnabled` kill switch in admin settings; atomic per-user quota (advisory lock + reserved row); provider timeout/retries; SOURCE_LOCK now also checks the model's *output* for religious content in secular categories; golden eval set `server/eval/cases.jsonl` (16 cases) run in CI through a mocked provider.
+- **Answer matching**: NFKC normalisation, invisible characters stripped, Arabic-Indic/Persian digits and `٪`/`٫` accepted, standalone hamza ignored; `parseNumeric('')` is `null`.
+- **Search/DB**: trigram index on `arabic_norm(question_prompt_text(content))` for admin search and duplicate detection; migrations run with `lock_timeout`/`statement_timeout`; retention job also purges expired tokens; ordering tiebreakers on every paginated list.
+- **Quiz flow**: an identical `POST /quizzes/start` re-sent within 20 s (solo, no answers yet) returns the same attempt (`resumed: true`); leaderboard responses carry `ETag` + `cache-control: private, max-age=30` (304 on repeat).
+- **Arabic UI**: every string rewritten (imperative verbs on buttons, unified formal register); grammatical plurals (`نقطتان`, `٣ أسئلة`) via `Intl.PluralRules` instead of `count + noun`; API error codes mapped to Arabic messages (no raw server English); direction-aware chevrons.
+- **Design v5**: 6-step rem type scale with a 14 px Arabic floor, `line-height` 1.75 body / 1.7 question, no negative tracking in Arabic; spacing tokens; hero no longer a full-bleed brand block; one filled CTA per screen; sticky full-width *Start* / *Confirm answer* buttons that clear the tab bar; 3 primary modes + “more modes”; empty states with title/body/action (friends, challenges, notifications, results, stats); result strip glyphs ✓/✕/–; middle-truncated LTR usernames in RTL; 44×44 touch targets; three-state theme (system/light/dark) applied before first paint.
+- **Resilience**: network or 5xx on session refresh keeps the session and shows a retry card (only 401 signs out); 15 s auth timeout; app shell rendered while auth resolves; `ErrorBoundary` around routes and the quiz player; URL state for quiz setup, leaderboard scope and admin filters.
+- **SEO/PWA**: JSON-LD `WebApplication`, per-route meta descriptions, robots paths under `/quiz/`, theme-color per scheme, manifest description.
+- **CI/ops**: gitleaks secrets scan, workflow permissions/concurrency/timeouts, Docker `APP_VERSION`/`GIT_SHA` build args reported by `/ready`, `render.yaml`/`fly.toml` health check on `/ready`, backup script refuses to run unprotected in production.
+- **Tests**: 153 server tests (was 119) incl. `batch-c.test.ts` and `ai-eval.test.ts`; E2E selectors follow the new labels.
+- **Docs**: `docs/SPEC.md`, `docs/QA_GATE.md` (production-readiness gate report), README quickstart/env table/known issues, store listing copy AR/EN with character counts.
+
 Skill-checklist pass (web security, performance, PWA, SEO, accessibility, design) — every finding verified against the running app.
 
 ### Security

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, del, get, patch, post } from '../api';
-import { Avatar, EmptyState, ErrorState, Field, Spinner, StatBox, ToggleChip, fmtMs, useAction, useAsync, useToast } from '../components';
-import { useAuth } from '../ctx';
+import { Avatar, EmptyState, ErrorState, Field, Spinner, StatBox, ToggleChip, fmtMs, useAction, useAsync, usePageMeta, useToast } from '../components';
+import { useAuth, useTheme, type Theme } from '../ctx';
 import { useI18n, type Lang } from '../i18n';
-import { useTheme } from '../ctx';
+import { useTx } from '../i18n';
 import { autoAdvanceEnabled, largeTextEnabled, setAutoAdvance, setLargeText, setSoundsEnabled, soundsEnabled } from '../sounds';
 import { IS_NATIVE, nativeShareBlob, reminderEnabled, setDailyReminder } from '../native';
 
@@ -26,8 +26,8 @@ export function PublicProfilePage() {
       <div className="card center">
         <Avatar name={data.user.displayName || data.user.username} size="lg" />
         <h1>{data.user.displayName || data.user.username}</h1>
-        <p className="muted">@{data.user.username}</p>
-        <div className="row" style={{ justifyContent: 'center' }}>
+        <p className="muted"><bdi className="ltr-id">@{data.user.username}</bdi></p>
+        <div className="row centered">
           <span className="badge primary">{t('level')} {data.user.level}</span>
           <span className="badge">#{data.stats.globalRank}</span>
           <span className="badge warn">🔥 {data.user.currentStreak}</span>
@@ -46,7 +46,7 @@ export function PublicProfilePage() {
         {data.achievements.length === 0 ? <EmptyState /> : (
           <div className="row">
             {data.achievements.map((a) => (
-              <span key={a.slug} className="badge success" style={{ fontSize: 13, padding: '6px 12px' }}>{a.icon || '🏅'} {pick(a.name)}</span>
+              <span key={a.slug} className="badge success lg">{a.icon || '🏅'} {pick(a.name)}</span>
             ))}
           </div>
         )}
@@ -56,7 +56,9 @@ export function PublicProfilePage() {
 }
 
 export function StatsPage() {
-  const { t, pick } = useI18n();
+  const { t, n, pick } = useI18n();
+  const tx = useTx();
+  usePageMeta(t('stats'), tx('metaDescStats'));
   type Stats = {
     stats: {
       quizzesCompleted: number; questionsAnswered: number; correct: number; incorrect: number; timeouts: number;
@@ -70,7 +72,17 @@ export function StatsPage() {
 
   if (error) return <div className="page wide"><h1>📊 {t('stats')}</h1><div className="card"><ErrorState error={error} onRetry={reload} /></div></div>;
   if (!data) return <Spinner />;
-  if (!data.stats) return <div className="page wide"><h1>📊 {t('stats')}</h1><div className="card"><EmptyState /></div></div>;
+  // a grid of zeros says nothing: first-use empty state with the one action that fills it
+  if (!data.stats || data.stats.quizzesCompleted === 0) {
+    return (
+      <div className="page wide">
+        <h1>📊 {t('stats')}</h1>
+        <div className="card">
+          <EmptyState icon="📊" title={t('noStatsYet')} body={t('noStatsHint')} action={{ label: t('startFirstQuiz'), to: '/play' }} />
+        </div>
+      </div>
+    );
+  }
   const s = data.stats;
   const maxQ = Math.max(...data.activity.map((a) => a.questions), 1);
 
@@ -91,10 +103,10 @@ export function StatsPage() {
       </div>
       <div className="grid cols-2">
         {s.bestCategory && (
-          <div className="card"><h2 style={{ fontSize: 16 }}>💪 {t('bestCategory')}</h2><p>{pick(s.bestCategory.name)} — <strong>{s.bestCategory.accuracy}%</strong></p></div>
+          <div className="card"><h2 className="fs-3">💪 {t('bestCategory')}</h2><p>{pick(s.bestCategory.name)} — <strong>{s.bestCategory.accuracy}%</strong></p></div>
         )}
         {s.weakestCategory && (
-          <div className="card"><h2 style={{ fontSize: 16 }}>🎯 {t('weakestCategory')}</h2><p>{pick(s.weakestCategory.name)} — <strong>{s.weakestCategory.accuracy}%</strong></p></div>
+          <div className="card"><h2 className="fs-3">🎯 {t('weakestCategory')}</h2><p>{pick(s.weakestCategory.name)} — <strong>{s.weakestCategory.accuracy}%</strong></p></div>
         )}
       </div>
       {data.activity.length > 0 && (
@@ -102,7 +114,7 @@ export function StatsPage() {
           <h2>{t('activity')} (90d)</h2>
           <div className="sparkbars" role="img" aria-label={data.activity.map((a) => `${a.day}: ${a.questions}`).join(', ')}>
             {data.activity.map((a) => (
-              <span key={a.day} title={`${a.day}: ${a.questions} ${t('questions')}, ${a.points} ${t('points')}`} style={{ height: `${(a.questions / maxQ) * 100}%` }} />
+              <span key={a.day} title={`${a.day}: ${n('questions', a.questions)}, ${n('points', a.points)}`} style={{ height: `${(a.questions / maxQ) * 100}%` }} />
             ))}
           </div>
         </div>
@@ -111,6 +123,7 @@ export function StatsPage() {
         <div className="card">
           <h2>{t('categories')}</h2>
           <div className="tbl-wrap"><table className="tbl">
+            <caption className="sr-only">{t('categories')}</caption>
             <thead><tr><th scope="col">{t('category')}</th><th scope="col">{t('answered')}</th><th scope="col">{t('correct')}</th><th scope="col">{t('accuracy')}</th></tr></thead>
             <tbody>
               {s.categories.map((c) => (
@@ -126,6 +139,8 @@ export function StatsPage() {
 
 export function AchievementsPage() {
   const { t, pick } = useI18n();
+  const tx = useTx();
+  usePageMeta(t('achievements'), tx('metaDescAchievements'));
   type Achievement = { id: string; slug: string; name: unknown; description: unknown; icon: string; xpReward: number; earned: boolean };
   const { data: list, error, reload } = useAsync(() => get<{ achievements: Achievement[] }>('/achievements').then((r) => r.achievements), []);
   if (error) return <div className="page"><h1>🏅 {t('achievements')}</h1><div className="card"><ErrorState error={error} onRetry={reload} /></div></div>;
@@ -137,9 +152,9 @@ export function AchievementsPage() {
       <div className="grid cols-3">
         {list.map((a) => (
           <div key={a.id} className={`card center ${a.earned ? '' : 'locked'}`}>
-            <div className="ach-icon" style={{ fontSize: 34 }} aria-hidden="true">{a.earned ? a.icon || '🏅' : '🔒'}</div>
-            <h2 style={{ fontSize: 16, margin: '0 0 8px' }}>{pick(a.name)}</h2>
-            <p className="muted" style={{ margin: '2px 0 6px' }}>{pick(a.description)}</p>
+            <div className="ach-icon fs-6" aria-hidden="true">{a.earned ? a.icon || '🏅' : '🔒'}</div>
+            <h2 className="fs-3 m-0 mb-2">{pick(a.name)}</h2>
+            <p className="muted m-0 mb-2">{pick(a.description)}</p>
             <span className={`badge ${a.earned ? 'success' : ''}`}>{a.earned ? `✓ ${t('completed')}` : `+${a.xpReward} XP`}</span>
           </div>
         ))}
@@ -151,6 +166,8 @@ export function AchievementsPage() {
 
 export function NotificationsPage() {
   const { t, pick } = useI18n();
+  const tx = useTx();
+  usePageMeta(t('notifications'), tx('metaDescNotifications'));
   type Notifications = { notifications: Array<{ id: string; kind: string; title: unknown; body: unknown; read_at: string | null; created_at: string }>; unreadCount: number };
   const { data, error, reload } = useAsync(async () => {
     const d = await get<Notifications>('/notifications?limit=50');
@@ -163,12 +180,14 @@ export function NotificationsPage() {
     <div className="page narrow">
       <h1>🔔 {t('notifications')}</h1>
       <div className="card">
-        {data.notifications.length === 0 ? <EmptyState /> : (
+        {data.notifications.length === 0 ? (
+          <EmptyState icon="🔔" title={t('noNotificationsYet')} body={t('noNotificationsHint')} />
+        ) : (
           <div className="stack">
             {data.notifications.map((n) => (
-              <div key={n.id} className="list-row" style={{ display: 'block', opacity: n.read_at ? 0.7 : 1 }}>
+              <div key={n.id} className={`list-row block ${n.read_at ? 'read' : ''}`}>
                 <strong>{pick(n.title)}</strong>
-                <p className="muted" style={{ margin: '2px 0 0' }}>{pick(n.body)} · {new Date(n.created_at).toLocaleString()}</p>
+                <p className="muted m-0 mt-1">{pick(n.body)} · {new Date(n.created_at).toLocaleString()}</p>
               </div>
             ))}
           </div>
@@ -182,7 +201,8 @@ const AVATAR_EMOJIS = ['🦊', '🐼', '🦁', '🐸', '🦉', '🐙', '🦋', '
 
 export function SettingsPage() {
   const { t, lang, setLang } = useI18n();
-  const { theme, toggle } = useTheme();
+  const { theme, setTheme } = useTheme();
+  const themeOptions: Array<[Theme, string, string]> = [['system', '🖥️', t('followSystem')], ['light', '☀️', t('themeLight')], ['dark', '🌙', t('themeDark')]];
   const { user, refreshUser, logout } = useAuth();
   const nav = useNavigate();
   const toast = useToast();
@@ -195,6 +215,7 @@ export function SettingsPage() {
   const [autoAdv, setAutoAdv] = useState(autoAdvanceEnabled());
   const [pw, setPw] = useState({ current: '', next: '', confirm: '' });
   const [delPw, setDelPw] = useState('');
+  const [delName, setDelName] = useState('');
   const [saveProfile, savingProfile] = useAction(async () => {
     await patch('/users/me', { displayName: displayName.trim(), country: country.toUpperCase() || '', language: lang, avatar });
     await refreshUser();
@@ -214,8 +235,10 @@ export function SettingsPage() {
     a.click();
     URL.revokeObjectURL(a.href);
   });
+  // inline confirm: the exact username must be typed (guests have nothing to type but still see the warning)
+  const nameMatches = !!user && (user.isGuest || delName.trim() === user.username);
   const [deleteAccount, deleting] = useAction(async () => {
-    if (!window.confirm(`${t('deleteAccount')}?`)) return;
+    if (!user || !nameMatches || (!user.isGuest && !delPw)) return;
     await del('/auth/account', { password: delPw });
     await logout();
     nav('/login');
@@ -265,7 +288,13 @@ export function SettingsPage() {
             <option value="en">English</option>
             <option value="ar">العربية</option>
           </select>
-          <button className="btn secondary" onClick={toggle}>{theme === 'light' ? `🌙 ${t('dark')}` : `☀️ ${t('light')}`}</button>
+          <div className="segmented" role="radiogroup" aria-label={t('theme')}>
+            {themeOptions.map(([value, icon, label]) => (
+              <button key={value} type="button" role="radio" aria-checked={theme === value} className={`chip ${theme === value ? 'selected' : ''}`} onClick={() => setTheme(value)}>
+                <span aria-hidden="true">{icon}</span> {label}
+              </button>
+            ))}
+          </div>
           <ToggleChip checked={sounds} onChange={(v) => { setSounds(v); setSoundsEnabled(v); }}>🔔 {t('sound')}</ToggleChip>
           <ToggleChip checked={largeText} onChange={(v) => { setLargeTextState(v); setLargeText(v); }}>🔍 {t('largeText')}</ToggleChip>
           <ToggleChip checked={autoAdv} onChange={(v) => { setAutoAdv(v); setAutoAdvance(v); }}>⏭️ {t('autoAdvance')}</ToggleChip>
@@ -291,10 +320,16 @@ export function SettingsPage() {
       )}
       <div className="card">
         <h2 className="error-text">{t('deleteAccount')}</h2>
+        <p className="muted" role="note">{t('deleteWarning')}</p>
         <form className="stack" onSubmit={(e) => { e.preventDefault(); void deleteAccount(); }}>
           {!user.isGuest && <button type="button" className="btn secondary" onClick={() => void downloadData()} disabled={downloading}>⬇ {t('downloadData')}</button>}
+          {!user.isGuest && (
+            <Field label={t('deleteTypeUsername')} hint={user.username}>
+              {(id, describedBy) => <input id={id} aria-describedby={describedBy} value={delName} onChange={(e) => setDelName(e.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} dir="ltr" required />}
+            </Field>
+          )}
           {!user.isGuest && <Field label={t('password')}>{(id) => <input id={id} type="password" autoComplete="current-password" value={delPw} onChange={(e) => setDelPw(e.target.value)} required />}</Field>}
-          <button className="btn danger" type="submit" disabled={deleting || (!user.isGuest && !delPw)}>{t('deleteAccount')}</button>
+          <button className="btn danger" type="submit" disabled={deleting || !nameMatches || (!user.isGuest && !delPw)}>{t('deleteAccountConfirm')}</button>
         </form>
       </div>
     </div>

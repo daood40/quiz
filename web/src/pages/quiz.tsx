@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ApiError, del, get, post } from '../api';
-import { ErrorState, Spinner, StatBox, fmtMs, useAction, useOnline, useToast, useTypeSpecs } from '../components';
+import { ErrorBoundary, ErrorState, Spinner, StatBox, fmtMs, useAction, useOnline, usePageMeta, useToast, useTypeSpecs } from '../components';
 import { useAuth } from '../ctx';
 import { useI18n, type TKey } from '../i18n';
+import { useTx } from '../i18n';
 import { nativeShareBlob, nativeShareText } from '../native';
 import { QuestionRenderer, type PlayableQuestion } from '../QuestionRenderer';
 import { autoAdvanceEnabled, haptic, sfx } from '../sounds';
@@ -44,21 +45,43 @@ interface CategoryOpt { id: string; name: unknown }
 const MODES = [
   { id: 'practice', icon: '🧘', untimed: true },
   { id: 'timed', icon: '⚡', untimed: false },
+  { id: 'daily', icon: '📅', untimed: false },
   { id: 'speed', icon: '🚀', untimed: false },
   { id: 'survival', icon: '💀', untimed: false },
   { id: 'knowledge', icon: '🎓', untimed: false },
   { id: 'review', icon: '🔁', untimed: true },
   { id: 'bookmarks', icon: '🔖', untimed: true },
 ] as const;
+type ModeId = (typeof MODES)[number]['id'];
+const MODE_IDS = new Set<string>(MODES.map((m) => m.id));
+/** three tiles above the fold; the rest sit behind "other modes" so the start button stays reachable */
+const PRIMARY_MODES = new Set<ModeId>(['practice', 'timed', 'daily']);
+const DEFAULT_COUNT = 10;
 
 export function PlayPage() {
   const { t, pick, lang } = useI18n();
-  const [params] = useSearchParams();
+  const tx = useTx();
+  usePageMeta(t('play'), tx('metaDescPlay'));
+  // setup lives in the URL: back/forward and shared links restore the same mode / category / count
+  const [params, setParams] = useSearchParams();
+  const rawMode = params.get('mode') ?? 'practice';
+  const mode: ModeId = (MODE_IDS.has(rawMode) ? rawMode : 'practice') as ModeId;
+  const categoryId = params.get('category') ?? '';
+  const difficulty = params.get('difficulty') ?? '';
+  const count = Math.min(30, Math.max(3, Number(params.get('count')) || DEFAULT_COUNT));
+  const setParam = useCallback((key: string, value: string, replace = false) => {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value) next.set(key, value); else next.delete(key);
+      return next;
+    }, { replace });
+  }, [setParams]);
+  const setMode = (m: ModeId) => setParam('mode', m === 'practice' ? '' : m);
+  const setCategoryId = (id: string) => setParam('category', id);
+  const setDifficulty = (d: string) => setParam('difficulty', d, true);
+  const setCount = (c: number) => setParam('count', c === DEFAULT_COUNT ? '' : String(c), true);
+  const [showMore, setShowMore] = useState(() => !PRIMARY_MODES.has(mode));
   const [categories, setCategories] = useState<CategoryOpt[]>([]);
-  const [categoryId, setCategoryId] = useState(params.get('category') ?? '');
-  const [difficulty, setDifficulty] = useState('');
-  const [count, setCount] = useState(10);
-  const [mode, setMode] = useState<string>(params.get('mode') === 'daily' ? 'daily' : 'practice');
   const [session, setSession] = useState<StartResponse | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -97,38 +120,47 @@ export function PlayPage() {
     }
   };
 
-  if (session) return <QuizPlayer session={session} />;
+  if (session) return <ErrorBoundary><QuizPlayer session={session} /></ErrorBoundary>;
 
-  const modeMeta: Record<string, { name: string; desc: string }> = {
+  const modeMeta: Record<ModeId, { name: string; desc: string }> = {
     practice: { name: t('modePractice'), desc: t('modePracticeDesc') },
     timed: { name: t('modeTimed'), desc: t('modeTimedDesc') },
+    daily: { name: t('dailyChallenge'), desc: t('sameForAll') },
     review: { name: t('modeReview'), desc: t('modeReviewDesc') },
     speed: { name: t('modeSpeed'), desc: t('modeSpeedDesc') },
     survival: { name: t('modeSurvival'), desc: t('modeSurvivalDesc') },
     knowledge: { name: t('modeKnowledge'), desc: t('modeKnowledgeDesc') },
     bookmarks: { name: t('modeBookmarks'), desc: t('modeBookmarksDesc') },
   };
+  const tile = (m: (typeof MODES)[number]) => (
+    <button type="button" key={m.id} className={mode === m.id ? 'selected' : ''} aria-pressed={mode === m.id} onClick={() => setMode(m.id)}>
+      <div className="mp-icon" aria-hidden="true">{m.icon}</div>
+      <div className="mp-name">{modeMeta[m.id].name}</div>
+      <div className="mp-desc">{modeMeta[m.id].desc}</div>
+    </button>
+  );
+  const needsSetup = mode !== 'review' && mode !== 'daily' && mode !== 'bookmarks';
 
   return (
-    <div className="card" style={{ maxWidth: 540, margin: '0 auto' }}>
+    <div className="card page narrow">
       <h1>{mode === 'daily' ? t('dailyChallenge') : t('startQuiz')}</h1>
       <div className="stack">
-        {mode !== 'daily' && (
-          <div className="mode-pick">
-            {MODES.map((m) => (
-              <button key={m.id} className={mode === m.id ? 'selected' : ''} aria-pressed={mode === m.id} onClick={() => setMode(m.id)}>
-                <div className="mp-icon">{m.icon}</div>
-                <div className="mp-name">{modeMeta[m.id].name}</div>
-                <div className="mp-desc">{modeMeta[m.id].desc}</div>
-              </button>
-            ))}
+        <div className="mode-pick primary" role="group" aria-label={t('mode')}>
+          {MODES.filter((m) => PRIMARY_MODES.has(m.id)).map(tile)}
+        </div>
+        <button type="button" className="btn ghost sm" aria-expanded={showMore} aria-controls="more-modes" onClick={() => setShowMore((v) => !v)}>
+          {showMore ? '▴' : '▾'} {t('otherModes')}
+        </button>
+        {showMore && (
+          <div className="mode-pick" id="more-modes" role="group" aria-label={t('otherModes')}>
+            {MODES.filter((m) => !PRIMARY_MODES.has(m.id)).map(tile)}
           </div>
         )}
-        {mode !== 'review' && mode !== 'daily' && mode !== 'bookmarks' && (
+        {needsSetup && (
           <>
             <div>
               <label className="fld" htmlFor="q-category">{t('category')}</label>
-              <div className="row" style={{ flexWrap: 'nowrap' }}>
+              <div className="row nowrap">
                 <select id="q-category" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
                   <option value="">{t('anyCategory')}</option>
                   {categories.map((c) => <option key={c.id} value={c.id}>{pick(c.name)}</option>)}
@@ -160,8 +192,10 @@ export function PlayPage() {
             <input id="q-count" type="range" min={3} max={30} value={count} onChange={(e) => setCount(Number(e.target.value))} />
           </div>
         )}
-        {error && <p className="error-text">{error}</p>}
-        <button className="btn lg" onClick={start} disabled={busy}>{busy ? t('loading') : t('startQuiz')}</button>
+        {error && <p className="error-text" role="alert">{error}</p>}
+        <div className="sticky-cta">
+          <button type="button" className="btn lg block" onClick={start} disabled={busy}>{busy ? t('loading') : t('startQuiz')}</button>
+        </div>
       </div>
     </div>
   );
@@ -171,7 +205,8 @@ type OutcomeMark = 'correct' | 'partial' | 'incorrect' | 'timeout' | 'skipped';
 
 /** Shared player — also used by challenges/monthly/tournaments/daily. */
 export function QuizPlayer({ session }: { session: StartResponse }) {
-  const { t, pick } = useI18n();
+  const { t, pick, dir } = useI18n();
+  const chev = dir === 'rtl' ? '‹' : '›';
   const nav = useNavigate();
   const { specs, error: specsError, retry: retrySpecs } = useTypeSpecs();
   const online = useOnline();
@@ -368,20 +403,20 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
     };
   }, [question, eliminated]);
 
-  if (summary) return <ResultView summary={summary} outcomes={outcomesRef.current} />;
+  if (summary) return <ResultView summary={summary} outcomes={outcomesRef.current} mode={session.mode} />;
   if (!specs && specsError) return <div className="card"><ErrorState error={specsError} onRetry={retrySpecs} /></div>;
   if (!specs || !question || !displayQuestion) return <Spinner />;
 
   const hasOptions = Array.isArray(question.content.options) && (question.content.options as unknown[]).length >= 3;
 
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto' }}>
-      <button className="btn secondary sm focus-exit" onClick={() => finish()} disabled={submitting}>
+    <div className="page">
+      <button type="button" className="btn secondary sm focus-exit" onClick={() => finish()} disabled={submitting}>
         ✕ {t('finish')}
       </button>
-      {!online && <div className="banner warn" style={{ marginBottom: 10 }}>{t('offline')}</div>}
+      {!online && <div className="banner warn mb-2">{t('offline')}</div>}
       <div className="quiz-top">
-        <div className="stack" style={{ gap: 6, flex: 1 }}>
+        <div className="stack tight grow">
           <div className="row between">
             <span className="badge primary">{t('question')} {index + 1} / {total}</span>
             <span className="badge">{t('score')}: {score}</span>
@@ -391,19 +426,19 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
         {untimed ? <span className="badge success">🧘 {t('untimed')}</span> : <TimerRing left={timeLeft} total={question.timeLimitSec || 1} />}
       </div>
       {(powerups.fiftyFifty > 0 || powerups.timeExtend > 0 || powerups.audience > 0) && !feedback && (
-        <div className="row" style={{ marginBottom: 10 }}>
+        <div className="row mb-2">
           {powerups.fiftyFifty > 0 && (
-            <button className="powerup" onClick={useFiftyFifty} disabled={submitting || !hasOptions || !!eliminated[question.id]} aria-label={`${t('fiftyFifty')} (${powerups.fiftyFifty})`} title={t('fiftyFifty')}>
+            <button type="button" className="powerup" onClick={useFiftyFifty} disabled={submitting || !hasOptions || !!eliminated[question.id]} aria-label={`${t('fiftyFifty')} (${powerups.fiftyFifty})`} title={t('fiftyFifty')}>
               ½ 50:50 <span className="count" aria-hidden="true">{powerups.fiftyFifty}</span>
             </button>
           )}
           {!untimed && powerups.timeExtend > 0 && (
-            <button className="powerup" onClick={useTimeExtend} disabled={submitting} aria-label={`${t('timeExtend')} (${powerups.timeExtend})`} title={t('timeExtend')}>
+            <button type="button" className="powerup" onClick={useTimeExtend} disabled={submitting} aria-label={`${t('timeExtend')} (${powerups.timeExtend})`} title={t('timeExtend')}>
               ⏳ +20s <span className="count" aria-hidden="true">{powerups.timeExtend}</span>
             </button>
           )}
           {powerups.audience > 0 && hasOptions && !audience[question.id] && (
-            <button className="powerup" onClick={askAudience} disabled={submitting} aria-label={`${t('askAudience')} (${powerups.audience})`}>
+            <button type="button" className="powerup" onClick={askAudience} disabled={submitting} aria-label={`${t('askAudience')} (${powerups.audience})`}>
               👥 {t('askAudience')} <span className="count" aria-hidden="true">{powerups.audience}</span>
             </button>
           )}
@@ -423,11 +458,11 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
               )}
               {feedback.data && pick(feedback.data.explanation) && <p>{pick(feedback.data.explanation)}</p>}
             </div>
-            <div className="row" style={{ marginTop: 16 }}>
-              <button className="btn" onClick={goNext} autoFocus>
-                {index + 1 >= total ? t('finish') : t('next')} ›
+            <div className="row mt-4">
+              <button type="button" className="btn" onClick={goNext} autoFocus>
+                {index + 1 >= total ? t('finish') : t('next')} {chev}
               </button>
-              <button className="btn ghost sm" onClick={toggleBookmark} aria-pressed={!!saved[question.id]}>
+              <button type="button" className="btn ghost sm" onClick={toggleBookmark} aria-pressed={!!saved[question.id]}>
                 {saved[question.id] ? `🔖 ${t('bookmarked')}` : `🔖 ${t('bookmark')}`}
               </button>
             </div>
@@ -449,7 +484,7 @@ export function QuizPlayer({ session }: { session: StartResponse }) {
             <QuestionRenderer key={`${question.id}:${eliminated[question.id]?.length ?? 0}`} question={displayQuestion} specs={specs} onSubmit={submitAnswer} disabled={submitting} />
             <div className="divider" />
             <div className="row between">
-              <button className="btn ghost sm" onClick={() => submitAnswer(null)} disabled={submitting}>{t('skip')} ›</button>
+              <button type="button" className="btn ghost sm" onClick={() => submitAnswer(null)} disabled={submitting}>{t('skip')} {chev}</button>
             </div>
           </>
         )}
@@ -475,7 +510,7 @@ function formatAnswer(answer: unknown, question: PlayableQuestion, pick: (v: unk
     if (Array.isArray(o.accepted)) return (o.accepted as string[]).join(' / ');
     if ('value' in o) return String(o.value);
     if ('back' in o) return String(o.back);
-    return Object.entries(o).map(([k, v]) => `${k} → ${v}`).join(document.documentElement.dir === 'rtl' ? '، ' : ', ');
+    return Object.entries(o).map(([k, v]) => `${k} ${document.documentElement.dir === 'rtl' ? '←' : '→'} ${v}`).join(document.documentElement.dir === 'rtl' ? '، ' : ', ');
   }
   return String(answer);
 }
@@ -544,16 +579,20 @@ const OUTCOME_EMOJI: Record<OutcomeMark, string> = {
   timeout: '⏰',
   skipped: '⬜',
 };
+// on-screen squares carry a glyph too, so the result reads without colour
+const OUTCOME_GLYPH: Record<OutcomeMark, string> = { correct: '✓', partial: '±', incorrect: '✕', timeout: '✕', skipped: '–' };
 
-export function ResultView({ summary, outcomes = [] }: { summary: Summary; outcomes?: OutcomeMark[] }) {
+export function ResultView({ summary, outcomes = [], mode }: { summary: Summary; outcomes?: OutcomeMark[]; mode?: string }) {
   const { t, pick } = useI18n();
+  const tx = useTx();
   const nav = useNavigate();
   const toast = useToast();
   const shownScore = useCountUp(summary.score);
   const grid = outcomes.map((o) => OUTCOME_EMOJI[o] ?? '⬜').join('');
   const share = async () => {
-    // Wordle-style share card: score + emoji outcome grid
-    const text = `🧠 ${t('appName')}\n${t('score')}: ${summary.score}/${summary.maxScore} · ${summary.accuracy}%\n${grid}`;
+    // Wordle-style share card: score + emoji outcome grid + a link that lands on the same quiz
+    const link = `${window.location.origin}${import.meta.env.BASE_URL}${mode === 'daily' ? 'play?mode=daily' : ''}`;
+    const text = `🧠 ${t('appName')}\n${tx('shareResultText', { score: summary.score, max: summary.maxScore })} · ${summary.accuracy}%\n${grid}\n${link}`;
     try {
       if (await nativeShareText(text, t('appName'))) return;
       if (navigator.share) await navigator.share({ text });
@@ -602,7 +641,7 @@ export function ResultView({ summary, outcomes = [] }: { summary: Summary; outco
     URL.revokeObjectURL(a.href);
   };
   return (
-    <div className="card center" style={{ maxWidth: 560, margin: '0 auto' }}>
+    <div className="card center page narrow">
       {summary.isPerfect && (
         <div className="confetti" aria-hidden="true">
           {Array.from({ length: 24 }, (_, i) => <span key={i} style={{ '--i': i } as React.CSSProperties} />)}
@@ -613,31 +652,39 @@ export function ResultView({ summary, outcomes = [] }: { summary: Summary; outco
       {summary.isPerfect && <h2>{t('perfect')}</h2>}
       <p className="result-score">{shownScore} <span className="of">/ {summary.maxScore}</span></p>
       <AccuracyRing pct={summary.accuracy} label={t('accuracy')} />
-      {grid && <p style={{ fontSize: 20, letterSpacing: 2, margin: '6px 0 0' }}>{grid}</p>}
-      <div className="grid cols-4" style={{ margin: '18px 0' }}>
+      {outcomes.length > 0 && (
+        <div className="outcome-grid mt-2" role="list" aria-label={t('resultsHeading')}>
+          {outcomes.map((o, i) => (
+            <span key={i} role="listitem" className={`outcome-dot ${o}`} aria-label={`${i + 1}: ${t(o)}`}>{OUTCOME_GLYPH[o] ?? '–'}</span>
+          ))}
+        </div>
+      )}
+      <div className="stack mt-4">
+        <button type="button" className="btn block" onClick={() => nav(`/review/${summary.attemptId}`)}>{t('reviewAnswers')}</button>
+        <button type="button" className="btn secondary block" onClick={() => nav('/play')}>{t('playAgain')}</button>
+      </div>
+      <div className="grid cols-4 my-4">
         <StatBox value={summary.correct} label={t('correct')} />
         <StatBox value={summary.partial} label={t('partial')} />
         <StatBox value={summary.incorrect} label={t('incorrect')} />
         <StatBox value={summary.timeout + summary.skipped} label={t('skipped')} />
       </div>
-      <div className="row" style={{ justifyContent: 'center' }}>
+      <div className="row centered">
         <span className="badge primary">+{summary.xpAwarded} {t('xp')}</span>
         <span className="badge warn">🔥 {summary.streak}</span>
         <span className="badge">{fmtMs(summary.totalTimeMs)}</span>
         {summary.leveledUp && <span className="badge success">⬆ {t('levelUp')}</span>}
       </div>
       {summary.achievements.length > 0 && (
-        <div style={{ marginTop: 12 }}>
+        <div className="mt-3">
           {summary.achievements.map((a) => (
-            <div key={a.slug} className="badge success" style={{ margin: 4 }}>🏅 {t('newAchievement')}: {pick(a.name)}</div>
+            <div key={a.slug} className="badge success m-1">🏅 {t('newAchievement')}: {pick(a.name)}</div>
           ))}
         </div>
       )}
-      <div className="row" style={{ justifyContent: 'center', marginTop: 20 }}>
-        <button className="btn" onClick={() => nav(`/review/${summary.attemptId}`)}>{t('reviewAnswers')}</button>
-        <button className="btn secondary" onClick={() => nav('/play')}>{t('tryAgain')}</button>
-        <button className="btn ghost" onClick={share}>{t('share')}</button>
-        <button className="btn ghost" onClick={shareImage}>🖼️ {t('shareImage')}</button>
+      <div className="row centered mt-5">
+        <button type="button" className="btn ghost" onClick={share}>{t('share')}</button>
+        <button type="button" className="btn ghost" onClick={shareImage}>🖼️ {t('shareImage')}</button>
       </div>
     </div>
   );
@@ -678,7 +725,7 @@ export function ReviewPage() {
     setReported((s) => new Set(s).add(questionId));
     setReporting(null);
     setDetails('');
-    toast(`✓ ${t('send')}`);
+    toast(`✓ ${t('sent')}`);
   });
   const REASONS: Array<[string, TKey]> = [
     ['wrong_answer', 'reasonWrongAnswer'], ['wrong_question', 'reasonWrongQuestion'], ['typo', 'reasonTypo'], ['duplicate', 'reasonDuplicate'],
@@ -695,10 +742,10 @@ export function ReviewPage() {
     outcome === 'correct' ? 'success' : outcome === 'partial' ? 'warn' : outcome === 'skipped' ? '' : 'danger';
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto' }}>
-      <div className="row between" style={{ marginBottom: 14 }}>
+    <div className="page wide">
+      <div className="row between mb-3">
         <h1>{t('reviewAnswers')}</h1>
-        <span className="badge primary" style={{ fontSize: 15 }}>{data.attempt.score} / {data.attempt.maxScore}</span>
+        <span className="badge primary">{data.attempt.score} / {data.attempt.maxScore}</span>
       </div>
       <div className="stack">
         {data.items.map((item, i) => (
@@ -710,7 +757,7 @@ export function ReviewPage() {
             <p><span className="muted">{t('yourAnswer')}:</span> {renderAnswer(item, item.yourAnswer)}</p>
             <p><span className="muted">{t('correctAnswer')}:</span> <strong>{renderAnswer(item, item.correctAnswer)}</strong></p>
             {pick(item.explanation) && <p className="banner info">{pick(item.explanation)}</p>}
-            <button className="btn ghost sm" onClick={() => setReporting(reporting === item.questionId ? null : item.questionId)} disabled={reported.has(item.questionId)} aria-expanded={reporting === item.questionId}>
+            <button type="button" className="btn ghost sm" onClick={() => setReporting(reporting === item.questionId ? null : item.questionId)} disabled={reported.has(item.questionId)} aria-expanded={reporting === item.questionId}>
               {reported.has(item.questionId) ? '✓' : `⚑ ${t('reportQuestion')}`}
             </button>
             {reporting === item.questionId && (
@@ -729,8 +776,8 @@ export function ReviewPage() {
           </div>
         ))}
       </div>
-      <div className="center" style={{ marginTop: 18 }}>
-        <Link className="btn" to="/play">{t('tryAgain')}</Link>
+      <div className="center mt-4">
+        <Link className="btn" to="/play">{t('playAgain')}</Link>
       </div>
     </div>
   );

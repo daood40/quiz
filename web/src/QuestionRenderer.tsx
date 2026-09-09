@@ -3,9 +3,10 @@
  * question-type registry (useTypeSpecs), so new server types render without
  * client changes as long as they map to a known family.
  */
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useI18n } from './i18n';
-import type { TypeSpec } from './components';
+import { useTx } from './i18n';
+import { useToast, type TypeSpec } from './components';
 
 export interface PlayableQuestion {
   id: string;
@@ -44,11 +45,25 @@ function Passage({ content }: { content: Record<string, unknown> }) {
   return <div className="quiz-passage">{passage}</div>;
 }
 
+/** Selector for "the thing the player should fill in" — used to move focus when they confirm with nothing chosen. */
+const ANSWER_TARGET = '[role="radio"]:not(:disabled), [role="checkbox"]:not(:disabled), input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea:not(:disabled), .chip:not(:disabled), [role="button"]';
+
+/**
+ * Confirm button: always enabled (a disabled button explains nothing). With no answer chosen it says so
+ * in a toast and moves focus to the first answer control instead of silently doing nothing.
+ */
 function SubmitBar({ onSubmit, canSubmit, disabled, children }: { onSubmit: () => void; canSubmit: boolean; disabled: boolean; children?: ReactNode }) {
   const { t } = useI18n();
+  const toast = useToast();
+  const ref = useRef<HTMLDivElement>(null);
+  const confirm = () => {
+    if (canSubmit) { onSubmit(); return; }
+    toast(t('chooseAnswer'));
+    ref.current?.parentElement?.querySelector<HTMLElement>(ANSWER_TARGET)?.focus();
+  };
   return (
-    <div className="row" style={{ marginTop: 16 }}>
-      <button className="btn" onClick={onSubmit} disabled={!canSubmit || disabled}>{t('submit')}</button>
+    <div className="sticky-cta" ref={ref}>
+      <button type="button" className="btn block" onClick={confirm} disabled={disabled} aria-disabled={!canSubmit || undefined}>{t('confirmAnswer')}</button>
       {children}
     </div>
   );
@@ -95,6 +110,7 @@ function SingleChoice({ question, onSubmit, disabled, withConfidence }: Props & 
     <div className="stack" role="radiogroup" aria-label={t('question')} onKeyDown={onGroupKey}>
       {options.map((o, i) => (
         <button
+          type="button"
           key={str(o.id)}
           role="radio"
           aria-checked={selected === o.id}
@@ -140,7 +156,7 @@ function MultiChoice({ question, onSubmit, disabled }: Props) {
   return (
     <div className="stack" role="group" aria-label={t('question')}>
       {options.map((o, i) => (
-        <button key={str(o.id)} role="checkbox" aria-checked={selected.has(str(o.id))} className={`option k${i % 4} ${selected.has(str(o.id)) ? 'selected' : ''}`} onClick={() => !disabled && toggle(str(o.id))} disabled={disabled}>
+        <button type="button" key={str(o.id)} role="checkbox" aria-checked={selected.has(str(o.id))} className={`option k${i % 4} ${selected.has(str(o.id)) ? 'selected' : ''}`} onClick={() => !disabled && toggle(str(o.id))} disabled={disabled}>
           <span className="opt-key" aria-hidden="true">{selected.has(str(o.id)) ? '✓' : keys[i] ?? i + 1}</span>
           {pick(o.text)}
         </button>
@@ -152,14 +168,17 @@ function MultiChoice({ question, onSubmit, disabled }: Props) {
 
 function TextAnswer({ onSubmit, disabled, numeric }: Props & { numeric?: boolean }) {
   const { t } = useI18n();
+  const tx = useTx();
+  const id = useId();
   const [value, setValue] = useState('');
   return (
     <div className="stack">
+      <label className="fld" htmlFor={id}>{t('yourAnswer')}</label>
       <input
+        id={id}
         type="text"
         inputMode={numeric ? 'decimal' : 'text'}
-        placeholder={t('typeAnswer')}
-        aria-label={t('typeAnswer')}
+        placeholder={numeric ? '42' : tx('answerExample')}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && value.trim() && !disabled && onSubmit(value.trim())}
@@ -209,13 +228,13 @@ function Ordering({ question, onSubmit, disabled }: Props) {
       )}
       <div className="row">
         {remaining.map((i) => (
-          <button key={str(i.id)} className="chip" onClick={() => !disabled && setOrder((o) => [...o, str(i.id)])} disabled={disabled}>
+          <button type="button" key={str(i.id)} className="chip" onClick={() => !disabled && setOrder((o) => [...o, str(i.id)])} disabled={disabled}>
             {pick(i.text)}
           </button>
         ))}
       </div>
       <SubmitBar onSubmit={() => onSubmit(order)} canSubmit={order.length === items.length} disabled={disabled}>
-        <button className="btn secondary sm" onClick={() => setOrder([])} disabled={disabled}>{t('reset')}</button>
+        <button type="button" className="btn secondary sm" onClick={() => setOrder([])} disabled={disabled}>{t('reset')}</button>
       </SubmitBar>
     </div>
   );
@@ -504,7 +523,7 @@ function GridEntry({ question: _question, onSubmit, disabled, gridRows, slots }:
   return (
     <div className="stack">
       {gridRows.length > 0 && (
-        <pre style={{ fontFamily: 'monospace', fontSize: 18, letterSpacing: 6, background: 'var(--surface-2)', padding: 12, borderRadius: 10, overflowX: 'auto' }}>
+        <pre className="xw-pre">
           {gridRows.join('\n')}
         </pre>
       )}
@@ -533,11 +552,11 @@ function Flashcard({ question: _question, onSubmit, disabled }: Props) {
   return (
     <div className="stack center">
       {!revealed ? (
-        <button className="btn lg" onClick={() => setRevealed(true)} disabled={disabled}>{t('reveal')}</button>
+        <button type="button" className="btn lg" onClick={() => setRevealed(true)} disabled={disabled}>{t('reveal')}</button>
       ) : (
         <div className="row" style={{ justifyContent: 'center' }}>
-          <button className="btn" style={{ background: 'var(--success)' }} onClick={() => onSubmit({ knew: true })} disabled={disabled}>{t('knew')}</button>
-          <button className="btn danger" onClick={() => onSubmit({ knew: false })} disabled={disabled}>{t('didntKnow')}</button>
+          <button type="button" className="btn" style={{ background: 'var(--success)' }} onClick={() => onSubmit({ knew: true })} disabled={disabled}>{t('knew')}</button>
+          <button type="button" className="btn danger" onClick={() => onSubmit({ knew: false })} disabled={disabled}>{t('didntKnow')}</button>
         </div>
       )}
     </div>
@@ -557,6 +576,7 @@ function Submission({ onSubmit, disabled }: Props) {
 
 function Composite({ question, spec: _spec, onSubmit, disabled, specs }: Props & { specs: Map<string, TypeSpec> }) {
   const { t, pick } = useI18n();
+  const toast = useToast();
   const parts = arr(question.content.parts);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [done, setDone] = useState<Set<string>>(new Set());
@@ -575,8 +595,8 @@ function Composite({ question, spec: _spec, onSubmit, disabled, specs }: Props &
           configuration: {},
         };
         return (
-          <div className="card" key={pid} style={{ padding: 14 }}>
-            <p style={{ fontWeight: 700, margin: '0 0 8px' }}>
+          <div className="card pad-3" key={pid}>
+            <p className="strong m-0 mb-2">
               {idx + 1}. {pick((sub.content as Record<string, unknown>).prompt)}
             </p>
             {done.has(pid) ? (
@@ -596,9 +616,11 @@ function Composite({ question, spec: _spec, onSubmit, disabled, specs }: Props &
           </div>
         );
       })}
-      <button className="btn" onClick={() => onSubmit(answers)} disabled={disabled || done.size === 0}>
-        {t('submit')} ({done.size}/{parts.length})
-      </button>
+      <div className="sticky-cta">
+        <button type="button" className="btn block" onClick={() => { if (done.size === 0) toast(t('chooseAnswer')); else onSubmit(answers); }} disabled={disabled} aria-disabled={done.size === 0 || undefined}>
+          {t('confirmAnswer')} ({done.size}/{parts.length})
+        </button>
+      </div>
     </div>
   );
 }

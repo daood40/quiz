@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { detectLang } from './i18n';
+import { storageGet } from './api';
 import { IS_NATIVE, initNative } from './native';
 import './styles.css';
 import { applyLargeText } from './sounds';
@@ -25,11 +26,16 @@ if (import.meta.env.PROD && !IS_NATIVE && 'serviceWorker' in navigator) {
   });
 }
 
-// language/direction before first paint (persisted choice), then the web font off the critical path
+// language/direction + theme before first paint (persisted choices), then the web font off the critical path
 {
   const lang = detectLang();
   document.documentElement.lang = lang;
   document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  // 'light' | 'dark' are explicit; 'system' (or nothing saved) leaves the attribute off so
+  // the stylesheet's prefers-color-scheme block decides — no flash of the wrong theme
+  const theme = storageGet('theme');
+  if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+  else delete document.documentElement.dataset.theme;
 }
 const font = document.createElement('link');
 font.rel = 'stylesheet';

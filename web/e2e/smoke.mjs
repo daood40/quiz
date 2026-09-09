@@ -50,7 +50,7 @@ for (const [name, viewport, arabic] of [['mobile-ar', { width: 375, height: 720 
   await page.getByRole('link', { name: arabic ? /العب/ : 'Play' }).first().click();
   await page.waitForTimeout(500);
   check((await page.locator('button:has-text("🧘")').count()) > 0, `${name}: play page shows modes`);
-  await page.getByRole('button', { name: arabic ? /ابدأ الاختبار/ : /Start Quiz/ }).first().click();
+  await page.getByRole('button', { name: arabic ? /ابدأ الاختبار/ : /start quiz/i }).first().click();
   await page.waitForTimeout(900);
   check((await page.locator('.quiz-question').count()) > 0, `${name}: a question renders`);
   await a11y(page, `${name}: question`);
@@ -63,9 +63,10 @@ for (const [name, viewport, arabic] of [['mobile-ar', { width: 375, height: 720 
     if (await opt.count()) await opt.click();
     else if (await text.count()) await text.fill('42');
     if ((await opt.count()) || (await text.count())) {
-      const submit = page.getByRole('button', { name: arabic ? /^إرسال/ : /^Submit/ }).first();
+      const submit = page.getByRole('button', { name: arabic ? /^(إرسال|تأكيد الإجابة)/ : /^(submit|confirm answer)/i }).first();
       await submit.waitFor({ state: 'visible', timeout: 3000 });
-      if (await submit.isEnabled()) {
+      // composite questions keep the button enabled but mark it aria-disabled until every part is answered
+      if ((await submit.isEnabled()) && (await submit.getAttribute('aria-disabled')) !== 'true') {
         await submit.click();
         await page.locator('.feedback').first().waitFor({ state: 'visible', timeout: 8000 }).catch(() => undefined);
         answered = (await page.locator('.feedback').count()) > 0;

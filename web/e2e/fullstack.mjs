@@ -35,24 +35,24 @@ check(!page.url().includes('/register') && (await page.locator('.hero').count())
 await page.goto(`${B}/play`, { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(800);
 await page.locator('main button').filter({ hasText: /^⚡/ }).first().click();
-await page.getByRole('button', { name: /Start Quiz/ }).first().click();
+await page.getByRole('button', { name: /start quiz/i }).first().click();
 await page.waitForTimeout(1500);
 check((await page.locator('.quiz-question').count()) > 0, 'timed round starts');
 let answered = 0, skipped = 0;
 for (let i = 0; i < 20; i++) {
-  if ((await page.getByRole('button', { name: /Review Answers|Try Again/ }).count()) > 0) break;
+  if ((await page.getByRole('button', { name: /review answers|play again/i }).count()) > 0) break;
   const opt = page.locator('.option').first();
   if (await opt.count()) {
     await opt.click(); await page.waitForTimeout(300);
-    const s = page.getByRole('button', { name: /^Submit/ }).first();
-    if ((await s.count()) && (await s.isEnabled())) { await s.click(); answered++; }
+    const s = page.getByRole('button', { name: /^(submit|confirm answer)/i }).first();
+    if ((await s.count()) && (await s.isEnabled()) && (await s.getAttribute('aria-disabled')) !== 'true') { await s.click(); answered++; } else { const sk2 = page.getByRole('button', { name: /^skip/i }).first(); if ((await sk2.count()) && (await sk2.isEnabled())) { await sk2.click(); skipped++; } }
   } else {
-    const sk = page.getByRole('button', { name: /^Skip/ }).first();
+    const sk = page.getByRole('button', { name: /^skip/i }).first();
     if ((await sk.count()) && (await sk.isEnabled())) { await sk.click(); skipped++; }
   }
   await page.waitForTimeout(700);
 }
-check((await page.getByRole('button', { name: /Review Answers/ }).count()) > 0 && answered + skipped >= 10, `round completes (answered ${answered}, skipped ${skipped})`);
+check((await page.getByRole('button', { name: /review answers/i }).count()) > 0 && answered + skipped >= 10, `round completes (answered ${answered}, skipped ${skipped})`);
 
 // leaderboard shows the player
 await page.goto(`${B}/leaderboard`, { waitUntil: 'domcontentloaded' });

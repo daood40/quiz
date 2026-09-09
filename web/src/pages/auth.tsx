@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { post } from '../api';
 import { Field, errorMessage, useAction } from '../components';
@@ -14,7 +14,7 @@ function AuthShell({ title, children }: { title: string; children: React.ReactNo
     <div className="auth-wrap">
       <div className="brand-big">🧠 {t('appName')}</div>
       <div className="card">
-        <h1 style={{ fontSize: 22 }}>{title}</h1>
+        <h1 className="fs-5">{title}</h1>
         {children}
       </div>
     </div>
@@ -71,7 +71,7 @@ export function LoginPage() {
         </div>
         {error && <p className="error-text" role="alert">{error}</p>}
         <div className="stack">
-          <button className="btn" disabled={busy}>{t('login')}</button>
+          <button type="submit" className="btn" disabled={busy}>{t('login')}</button>
           <button type="button" className="btn secondary" onClick={guest} disabled={busy}>{t('guest')}</button>
         </div>
       </form>
@@ -91,11 +91,17 @@ export function RegisterPage() {
   const [form, setForm] = useState({ email: '', username: '', password: '', confirm: '', displayName: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const mismatch = form.confirm.length > 0 && form.confirm !== form.password;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (mismatch) return;
+    // the button stays enabled: validation happens on click, and the first invalid field gets focus + its message
+    if (mismatch) {
+      setError(t('passwordsMismatch'));
+      formRef.current?.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus();
+      return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -114,7 +120,7 @@ export function RegisterPage() {
 
   return (
     <AuthShell title={t('register')}>
-      <form onSubmit={submit}>
+      <form onSubmit={submit} ref={formRef}>
         <Field label={t('email')}>{(id) => <input id={id} type="email" autoComplete="email" value={form.email} onChange={set('email')} required />}</Field>
         <Field label={t('username')}>{(id) => <input id={id} autoComplete="username" value={form.username} onChange={set('username')} required minLength={3} maxLength={32} pattern="[A-Za-z0-9_.\-]+" />}</Field>
         <Field label={t('displayName')}>{(id) => <input id={id} autoComplete="nickname" value={form.displayName} onChange={set('displayName')} maxLength={60} />}</Field>
@@ -125,7 +131,7 @@ export function RegisterPage() {
           {(id, describedBy) => <input id={id} aria-describedby={describedBy} aria-invalid={mismatch} type="password" autoComplete="new-password" value={form.confirm} onChange={set('confirm')} required minLength={8} />}
         </Field>
         {error && <p className="error-text" role="alert">{error}</p>}
-        <button className="btn" style={{ width: '100%' }} disabled={busy || mismatch}>{t('register')}</button>
+        <button type="submit" className="btn block" disabled={busy}>{t('register')}</button>
       </form>
       <div className="divider" />
       <Link to="/login">{t('login')}</Link>
@@ -159,7 +165,7 @@ export function ForgotPage() {
       ) : !sent ? (
         <form onSubmit={(e) => { e.preventDefault(); void request(); }}>
           <Field label={t('email')}>{(id) => <input id={id} type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />}</Field>
-          <button className="btn" style={{ width: '100%' }} disabled={requesting}>{t('submit')}</button>
+          <button type="submit" className="btn block" disabled={requesting}>{t('submit')}</button>
         </form>
       ) : (
         <form onSubmit={(e) => { e.preventDefault(); void reset(); }}>
@@ -168,7 +174,7 @@ export function ForgotPage() {
           <Field label={t('newPassword')} hint={t('passwordHint')}>
             {(id, describedBy) => <PasswordInput id={id} describedBy={describedBy} value={password} onChange={setPassword} autoComplete="new-password" withMeter />}
           </Field>
-          <button className="btn" style={{ width: '100%' }} disabled={resetting || password.length < 8 || token.trim().length < 20}>{t('resetPassword')}</button>
+          <button type="submit" className="btn block" disabled={resetting || password.length < 8 || token.trim().length < 20}>{t('resetPassword')}</button>
         </form>
       )}
     </AuthShell>
