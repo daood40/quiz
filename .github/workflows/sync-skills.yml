@@ -1,0 +1,84 @@
+name: sync-skills
+
+# انسخ هذا الملف إلى أي مستودع تريد المهارات فيه، على المسار:
+#   .github/workflows/sync-skills.yml
+# ثم افتح تبويب Actions في تطبيق GitHub واضغط Run workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      packs:
+        description: 'الحزم مفصولة بمسافة — method design flutter qa web data ai ops product — أو اكتب all'
+        required: true
+        default: 'method design flutter qa data product'
+      clean:
+        description: 'احذف المهارات المزامَنة سابقاً قبل النسخ (لا يمس مهاراتك الخاصة)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: جلب مستودع المهارات
+        run: git clone --depth 1 https://github.com/daood40/skills.git /tmp/skills
+
+      - name: نسخ الحزم المطلوبة
+        run: |
+          set -e
+          mkdir -p .claude/skills
+
+          if [ "${{ inputs.clean }}" = "true" ] && [ -f .claude/skills/.synced ]; then
+            while read -r s; do
+              [ -n "$s" ] && rm -rf ".claude/skills/$s"
+            done < .claude/skills/.synced
+          fi
+
+          for p in ${{ inputs.packs }}; do
+            if [ "$p" = "all" ]; then
+              cp -r /tmp/skills/all/. .claude/skills/
+            elif [ -d "/tmp/skills/packs/$p" ]; then
+              cp -r /tmp/skills/packs/$p/. .claude/skills/
+            else
+              echo "::error::حزمة غير معروفة: $p"; exit 1
+            fi
+          done
+
+          cp -r /tmp/skills/packs/_index/. .claude/skills/
+
+          : > .claude/skills/.synced
+          for p in ${{ inputs.packs }}; do
+            if [ "$p" = "all" ]; then ls /tmp/skills/all >> .claude/skills/.synced
+            else ls "/tmp/skills/packs/$p" >> .claude/skills/.synced; fi
+          done
+          ls /tmp/skills/packs/_index >> .claude/skills/.synced
+          sort -u -o .claude/skills/.synced .claude/skills/.synced
+
+      - name: التحقق
+        run: |
+          set -e
+          echo "عدد المهارات: $(find .claude/skills -name SKILL.md | wc -l)"
+          fail=0
+          for f in $(find .claude/skills -name SKILL.md); do
+            d=$(basename "$(dirname "$f")")
+            name=$(awk -F': *' '/^name:/{print $2; exit}' "$f")
+            if [ "$d" != "$name" ]; then echo "::error::$d != $name"; fail=1; fi
+          done
+          [ "$fail" = "0" ]
+
+      - name: حفظ التغييرات
+        run: |
+          git config user.name "skills-sync"
+          git config user.email "actions@users.noreply.github.com"
+          git add .claude/skills
+          if git diff --staged --quiet; then
+            echo "لا جديد — المهارات محدّثة."
+          else
+            git commit -m "sync skills: ${{ inputs.packs }}"
+            git push
+          fi
