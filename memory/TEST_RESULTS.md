@@ -1,4 +1,7 @@
 # memory/TEST_RESULTS.md   (يُكتب بعد تشغيل حقيقي فقط)
+## 2026-09-09 — GitHub Actions على da71781 — أخضر كله
+CI run #37 (ci.yml): secrets-scan (gitleaks) · test (tsc + 153 vitest + build + audit) · e2e (دخان Demo + axe) · fullstack (API + PG + متصفح) · restore-drill — الخمس ناجحة. Docker #22 ناجح. Pages #30 ناجح. Mobile #5 على d9fade0: android AAB/APK + iOS simulator ناجحان.
+CI #34/#35 فشلا بسبب مرآة apt لـGoogle معطوبة على الـrunner (خارج المشروع) — أُصلح في da71781.
 ## 2026-09-09 (مساءً) — محلي (حاوية Linux) بعد تمرير 121 مهارة
 `npm run lint` (tsc server+web + eslint): 0 أخطاء · `vitest`: 153/153 (10 ملفات، 26.6 ثانية) · `npm run build`: نجاح (index 110 kB, vendor 165 kB) · E2E كامل على :3002 (تسجيل → جولة → صدارة → إدارة): 11/11 · دخان Demo (`VITE_DEMO=1 VITE_BASE=/quiz/`) + axe: 17/17 · لقطات AR جوال 390×844 لثماني شاشات: بلا أخطاء JS.
 لم يُشغَّل هنا: gradle/xcodebuild (CI فقط) · جهاز حقيقي · اختبار حمل.

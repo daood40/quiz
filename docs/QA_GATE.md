@@ -5,7 +5,7 @@
 
 | # | البوابة | الحالة | الدليل |
 |---|---|---|---|
-| 1 | البناء | PASS | `npm run build` محليًا: server tsc + vite (index 110 kB / vendor 165 kB gz 54 kB)؛ CI `ci.yml` أخضر على 724db14 (قبل هذه الدفعة)، ويُعاد على الدفعة الحالية عند الدفع |
+| 1 | البناء | PASS | `npm run build` محليًا: server tsc + vite (index 110 kB / vendor 165 kB gz 54 kB)؛ CI run #37 (ci.yml) أخضر على da71781: test/e2e/fullstack/restore-drill/secrets-scan؛ Docker #22 وPages #30 وMobile #5 أخضر |
 | 2 | التحليل الساكن | PASS | `npm run lint` = tsc(server) + tsc(web) + eslint(server/src, web/src, server/test): 0 أخطاء |
 | 3 | اختبارات الوحدة | PASS | `vitest run`: 153/153 (engine 41، unit 19، migrate 2، mail 3، ai 3، ai-eval 17، rbac 3، hardening 18، integration، batch-c 9) |
 | 4 | اختبارات الواجهة | PASS | دخان Playwright على بناء Demo (`VITE_DEMO=1 VITE_BASE=/quiz/`): 17/17 بما فيها axe (0 مخالفات serious/critical) على AR جوال وEN سطح مكتب |
