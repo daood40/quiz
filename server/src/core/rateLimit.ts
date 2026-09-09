@@ -18,7 +18,7 @@ export function rateLimit(opts: { max?: number; windowMs?: number; keyPrefix?: s
   const max = opts.max ?? env.rateLimitMax;
   const windowMs = opts.windowMs ?? env.rateLimitWindowMs;
   const prefix = opts.keyPrefix ?? 'general';
-  return async (req: FastifyRequest, _reply: FastifyReply): Promise<void> => {
+  return async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
     if (env.isTest && process.env.RATE_LIMIT_IN_TEST !== '1') return; // deterministic tests unless a test opts in
     const key = `${prefix}:${req.userId ?? req.ip}`;
     const now = Date.now();
@@ -30,6 +30,7 @@ export function rateLimit(opts: { max?: number; windowMs?: number; keyPrefix?: s
     bucket.count++;
     if (bucket.count > max) {
       rateLimited.inc({ limiter: prefix });
+      reply.header('retry-after', String(Math.max(1, Math.ceil((bucket.resetAt - now) / 1000))));
       throw tooMany();
     }
   };

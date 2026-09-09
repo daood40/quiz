@@ -1,9 +1,11 @@
+import { createHash } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { badRequest, forbidden, unauthorized } from '../../core/errors.js';
 import { getSettings } from '../../core/settings.js';
 import { query } from '../../db/pool.js';
 import { requireAuth } from '../../plugins/auth.js';
 import { getIsoWeekKey } from '../quizzes/attempts.js';
+import { intQuery } from '../../core/validate.js';
 
 const VALID_SCOPES = new Set([
   'global', 'country', 'category', 'group', 'daily', 'weekly', 'monthly',
@@ -118,12 +120,12 @@ async function computeLeaderboard(scope: string, scopeKey: string, limit: number
 }
 
 export async function leaderboardRoutes(app: FastifyInstance): Promise<void> {
-  app.get('/', async (req) => {
+  app.get('/', async (req, reply) => {
     const settings = await getSettings();
     const q = req.query as { scope?: string; key?: string; limit?: string };
     const scope = q.scope ?? 'global';
     if (!VALID_SCOPES.has(scope)) throw badRequest('Invalid leaderboard scope');
-    const limit = Math.min(Number(q.limit ?? settings.leaderboardSize), 500);
+    const limit = intQuery(q.limit, settings.leaderboardSize, 1, 500);
 
     let key = q.key ?? '';
     const now = new Date();
@@ -202,7 +204,13 @@ export async function leaderboardRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const { entries, me, cachedAt } = await fetchLeaderboard(scope, key, limit, req.userId);
-    return { scope, key, entries, me, cachedAt };
+    const body = { scope, key, entries, me, cachedAt };
+    // per-user (me) → private; a repeat fetch inside the snapshot TTL is a 304
+    const etag = `W/"${createHash('sha1').update(JSON.stringify(body)).digest('base64url').slice(0, 20)}"`;
+    reply.header('etag', etag);
+    reply.header('cache-control', 'private, max-age=30');
+    if (req.headers['if-none-match'] === etag) return reply.code(304).send();
+    return body;
   });
 
   /** current user's ranks across common scopes */

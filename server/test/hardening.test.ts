@@ -108,7 +108,12 @@ describe('hardening: authentication lifecycle', () => {
     const ban = await api(`/admin/users/${victim.id}/status`, { method: 'POST', token: adminToken, body: { status: 'banned' } });
     expect(ban.status).toBe(200);
     expect((await api('/users/me', { token: victim.token })).status).toBe(401);
-    const audit = await query(`SELECT details, ip FROM audit_logs WHERE action = 'admin.user.banned'`);
+    // the audit write is fire-and-forget — give it a moment
+    let audit = await query(`SELECT details, ip FROM audit_logs WHERE action = 'admin.user.banned'`);
+    for (let i = 0; i < 20 && !audit.rows[0]; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      audit = await query(`SELECT details, ip FROM audit_logs WHERE action = 'admin.user.banned'`);
+    }
     expect(audit.rows[0].details.previous).toBe('active');
     expect(audit.rows[0].ip).toBeTruthy();
   });

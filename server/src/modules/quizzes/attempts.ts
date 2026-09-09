@@ -79,6 +79,17 @@ export async function startAttempt(userId: string, isGuest: boolean, opts: Start
   const settings = await getSettings();
   if (settings.maintenanceMode) throw forbidden('Platform is under maintenance');
 
+  // idempotent retry (solo only — competitions keep their one-attempt conflict): a client that lost the
+  // response and re-sends the same start within 20s gets the same untouched attempt back
+  const recent = (opts.contextType ?? 'solo') !== 'solo' ? { rows: [] as Array<{ id: string }> } : await query<{ id: string }>(
+    `SELECT id FROM attempts WHERE user_id = $1 AND status = 'in_progress' AND mode = $2 AND context_type = $3
+       AND created_at > now() - interval '20 seconds'
+       AND NOT EXISTS (SELECT 1 FROM attempt_answers aa WHERE aa.attempt_id = attempts.id)
+     ORDER BY created_at DESC LIMIT 1`,
+    [userId, opts.mode, opts.contextType ?? 'solo'],
+  );
+  if (recent.rows[0]) return resumeAttempt(userId, recent.rows[0].id);
+
   let count = Math.min(Math.max(opts.questionCount ?? settings.defaultQuizSize, 1), 100);
   if (isGuest) {
     if (opts.contextType && opts.contextType !== 'solo') throw forbidden('Create an account to join competitions');
@@ -228,6 +239,32 @@ interface AttemptRow {
   started_at: string;
   deadline_at: string | null;
   flags: unknown[];
+}
+
+/** Same payload as startAttempt for an in-progress attempt the caller owns (retry / reconnect). */
+export async function resumeAttempt(userId: string, attemptId: string) {
+  const { rows } = await query<AttemptRow>(
+    `SELECT id, user_id, mode, context_type, context_id, question_ids, question_meta, status,
+            started_at, deadline_at, flags
+     FROM attempts WHERE id = $1 AND user_id = $2 AND status = 'in_progress'`,
+    [attemptId, userId],
+  );
+  const a = rows[0];
+  if (!a) throw notFound('Attempt not found');
+  const questions = await loadQuestions(a.question_ids);
+  const ordered = a.question_ids.filter((id) => questions.has(id));
+  const meta = a.question_meta;
+  const p = meta.powerups;
+  return {
+    attemptId: a.id,
+    startedAt: a.started_at,
+    deadlineAt: a.deadline_at,
+    mode: a.mode,
+    untimed: Boolean(meta.untimed),
+    powerups: { fiftyFifty: p?.fiftyFifty ?? 0, timeExtend: p?.timeExtend ?? 0, audience: p?.audience ?? 0 },
+    questions: ordered.map((id) => presentQuestion(questions.get(id)!, meta.perQuestion[id]?.timeLimitSec ?? 30)),
+    resumed: true,
+  };
 }
 
 async function getOwnedAttempt(client: PoolClient, attemptId: string, userId: string): Promise<AttemptRow> {

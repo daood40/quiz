@@ -3,15 +3,16 @@ import { query } from '../../db/pool.js';
 import { z } from 'zod';
 import { badRequest } from '../../core/errors.js';
 import { requireAuth } from '../../plugins/auth.js';
+import { intQuery } from '../../core/validate.js';
 
 export async function notificationRoutes(app: FastifyInstance): Promise<void> {
   app.get('/', { preHandler: [requireAuth] }, async (req) => {
     const q = req.query as { limit?: string; offset?: string };
-    const limit = Math.min(Number(q.limit ?? 30), 100);
-    const offset = Math.max(Number(q.offset ?? 0), 0);
+    const limit = intQuery(q.limit, 30, 1, 100);
+    const offset = intQuery(q.offset, 0, 0, 1_000_000);
     const { rows } = await query(
       `SELECT id, kind, title, body, data, read_at, created_at
-       FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+       FROM notifications WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`,
       [req.userId, limit, offset],
     );
     const unread = await query(

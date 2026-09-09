@@ -20,3 +20,11 @@ server/dist/
 *.p12
 *.mobileprovision
 key.properties
+
+# secrets & keys (ops-secrets)
+.env.*
+!.env.example
+*.pem
+*.key
+*-service-account*.json
+.gradle/

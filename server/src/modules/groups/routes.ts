@@ -5,6 +5,7 @@ import { audit } from '../../core/audit.js';
 import { badRequest, conflict, forbidden, notFound } from '../../core/errors.js';
 import { query, withTransaction } from '../../db/pool.js';
 import { requireAccount } from '../../plugins/auth.js';
+import { uuidParam } from '../../core/validate.js';
 
 export async function groupRoutes(app: FastifyInstance): Promise<void> {
   app.post('/', { preHandler: [requireAccount] }, async (req) => {
@@ -53,7 +54,7 @@ export async function groupRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/:id', { preHandler: [requireAccount] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     return getGroup(id, req.userId!);
   });
 
@@ -79,7 +80,7 @@ export async function groupRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/:id/leave', { preHandler: [requireAccount] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const { rows } = await query('SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2', [id, req.userId]);
     if (!rows[0]) throw notFound('Not a member');
     if (rows[0].role === 'owner') {
@@ -96,7 +97,7 @@ export async function groupRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/:id/invite', { preHandler: [requireAccount] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const parsed = z.object({ username: z.string().min(1) }).safeParse(req.body);
     if (!parsed.success) throw badRequest('Invalid invite');
     const member = await query(`SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2`, [id, req.userId]);

@@ -38,6 +38,7 @@ export interface AppSettings {
   powerupFiftyFifty: number;      // 50/50 uses granted per timed quiz
   powerupTimeExtend: number;      // time-extension uses granted per timed quiz
   timeExtendSec: number;          // seconds added by a time extension
+  aiEnabled: boolean;             // kill switch for the AI drafting gateway (no redeploy needed)
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -67,6 +68,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   challengeMaxQuestions: 50,
   challengeDefaultExpiryHours: 72,
   tournamentDefaultQuestions: 10,
+  aiEnabled: true,
   antiCheatMinAnswerMs: 350,
   antiCheatGraceMs: 3000,
   streakMilestones: [1, 3, 7, 14, 30, 100, 365],

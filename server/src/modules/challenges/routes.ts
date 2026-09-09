@@ -8,6 +8,7 @@ import { query, withTransaction } from '../../db/pool.js';
 import { requireAccount } from '../../plugins/auth.js';
 import { contextHooks, startAttempt } from '../quizzes/attempts.js';
 import { pickQuestions } from '../quizzes/pool.js';
+import { isUuid, uuidParam } from '../../core/validate.js';
 
 function makeCode(): string {
   return randomBytes(4).toString('hex').toUpperCase();
@@ -167,7 +168,7 @@ export async function challengeRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/:id', { preHandler: [requireAccount] }, async (req) => {
     const { id } = req.params as { id: string };
-    if (!z.string().uuid().safeParse(id).success) throw notFound('Challenge not found');
+    if (!isUuid(id)) throw notFound('Challenge not found'); // never confirm or deny a guessed id
     const access = await query(
       `SELECT 1 FROM challenges c
        WHERE c.id = $1 AND (c.creator_id = $2 OR EXISTS (
@@ -200,7 +201,7 @@ export async function challengeRoutes(app: FastifyInstance): Promise<void> {
 
   /** Start playing a challenge (creates the attempt with the fixed question set). */
   app.post('/:id/start', { preHandler: [requireAccount] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const { rows } = await query(`SELECT * FROM challenges WHERE id = $1`, [id]);
     const c = rows[0];
     if (!c) throw notFound('Challenge not found');

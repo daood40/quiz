@@ -72,11 +72,12 @@ export async function findDuplicates(
   if (normalizedPrompt.length >= 10) {
     const near = await query(
       `SELECT id, content,
-              similarity(lower(coalesce(content->>'prompt', content->'prompt'->>'en', '') || ' ' || coalesce(content->'prompt'->>'ar','')), $1) AS sim
+              similarity(arabic_norm(question_prompt_text(content)), arabic_norm($1)) AS sim
        FROM questions
        WHERE status <> 'archived' AND type = $2
          AND id <> COALESCE($3::uuid, '00000000-0000-0000-0000-000000000000')
-         AND similarity(lower(coalesce(content->>'prompt', content->'prompt'->>'en', '') || ' ' || coalesce(content->'prompt'->>'ar','')), $1) > 0.6
+         AND arabic_norm(question_prompt_text(content)) % arabic_norm($1)
+         AND similarity(arabic_norm(question_prompt_text(content)), arabic_norm($1)) > 0.6
        ORDER BY sim DESC LIMIT 5`,
       [normalizedPrompt, type, excludeId ?? null],
     );

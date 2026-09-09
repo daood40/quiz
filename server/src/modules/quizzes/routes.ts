@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { badRequest, notFound } from '../../core/errors.js';
-import { uuidParam } from '../../core/validate.js';
+import { intQuery, uuidParam } from '../../core/validate.js';
 import { rateLimit } from '../../core/rateLimit.js';
 import { query } from '../../db/pool.js';
 import { requireAuth } from '../../plugins/auth.js';
@@ -73,8 +73,7 @@ export async function quizRoutes(app: FastifyInstance): Promise<void> {
     return { bookmarks: rows };
   });
   app.post('/bookmarks/:questionId', { preHandler: [requireAuth] }, async (req) => {
-    const { questionId } = req.params as { questionId: string };
-    if (!z.string().uuid().safeParse(questionId).success) throw badRequest('Invalid question id');
+    const questionId = uuidParam((req.params as { questionId: string }).questionId, 'question id');
     await query(
       `INSERT INTO question_bookmarks (user_id, question_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
       [req.userId, questionId],
@@ -107,7 +106,7 @@ export async function quizRoutes(app: FastifyInstance): Promise<void> {
 
   /** Server-side power-ups: 50/50 and time extension. */
   app.post('/attempts/:id/powerups', { preHandler: [requireAuth, answerLimiter] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const parsed = z
       .object({ kind: z.enum(['fifty_fifty', 'time_extend', 'audience']), questionId: z.string().uuid() })
       .safeParse(req.body);
@@ -147,7 +146,7 @@ export async function quizRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/attempts/:id/answers', { preHandler: [requireAuth, answerLimiter] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const schema = z.object({ questionId: z.string().uuid(), answer: z.unknown() });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) throw badRequest('Invalid answer payload', parsed.error.issues);
@@ -155,18 +154,18 @@ export async function quizRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/attempts/:id/submit', { preHandler: [requireAuth] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     return submitAttempt(id, req.userId!);
   });
 
   app.get('/attempts/:id/review', { preHandler: [requireAuth] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     return getAttemptReview(id, req.userId!);
   });
 
   /** Resume data for an in-progress attempt (network-recovery support). */
   app.get('/attempts/:id', { preHandler: [requireAuth] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const { rows } = await query(
       `SELECT a.id, a.status, a.mode, a.question_ids, a.question_meta, a.started_at, a.deadline_at,
               a.score, a.max_score
@@ -194,13 +193,13 @@ export async function quizRoutes(app: FastifyInstance): Promise<void> {
   /** Recent results for the current user. */
   app.get('/attempts', { preHandler: [requireAuth] }, async (req) => {
     const q = req.query as { limit?: string; offset?: string };
-    const limit = Math.min(Number(q.limit ?? 20), 100);
-    const offset = Math.max(Number(q.offset ?? 0), 0);
+    const limit = intQuery(q.limit, 20, 1, 100);
+    const offset = intQuery(q.offset, 0, 0, 1_000_000);
     const { rows } = await query(
       `SELECT id, mode, context_type, status, score, max_score, correct_count, incorrect_count,
               timeout_count, skipped_count, started_at, submitted_at, server_duration_ms
        FROM attempts WHERE user_id = $1 AND status <> 'in_progress'
-       ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+       ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`,
       [req.userId, limit, offset],
     );
     return { attempts: rows };

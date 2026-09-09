@@ -5,6 +5,7 @@ import { badRequest, notFound, validationError } from '../../core/errors.js';
 import { query } from '../../db/pool.js';
 import { requireRole } from '../../plugins/auth.js';
 import { registry } from '../questions/engine/registry.js';
+import { isUuid, uuidParam } from '../../core/validate.js';
 import {
   createQuestion,
   findDuplicates,
@@ -79,7 +80,7 @@ export async function adminQuestionRoutes(app: FastifyInstance): Promise<void> {
     if (f.tag) where.push(`${add(f.tag)} = ANY(tags)`);
     if (f.search)
       where.push(
-        `(coalesce(content->>'prompt','') || ' ' || coalesce(content->'prompt'->>'en','') || ' ' || coalesce(content->'prompt'->>'ar','')) ILIKE ${add(`%${f.search}%`)}`,
+        `arabic_norm(question_prompt_text(content)) ILIKE arabic_norm(${add(`%${f.search}%`)})`,
       );
     const total = await query<{ n: string }>(`SELECT count(*) AS n FROM questions WHERE ${where.join(' AND ')}`, params);
     const { rows } = await query(
@@ -91,7 +92,7 @@ export async function adminQuestionRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/:id', { preHandler: [moderator] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const { rows } = await query('SELECT * FROM questions WHERE id = $1', [id]);
     if (!rows[0]) throw notFound('Question not found');
     const stats = await query('SELECT * FROM question_stats WHERE question_id = $1', [id]);
@@ -144,7 +145,7 @@ export async function adminQuestionRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.put('/:id', { preHandler: [editor] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const parsed = questionInputSchema.safeParse(req.body);
     if (!parsed.success) throw badRequest('Invalid question', parsed.error.issues);
     await updateQuestion(id, parsed.data, req.userId);
@@ -152,7 +153,7 @@ export async function adminQuestionRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/:id/status', { preHandler: [moderator] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const parsed = z
       .object({
         status: z.enum(['draft', 'pending_review', 'approved', 'rejected', 'archived']),
@@ -182,7 +183,7 @@ export async function adminQuestionRoutes(app: FastifyInstance): Promise<void> {
 
   app.delete('/:id', { preHandler: [requireRole('admin')] }, async (req) => {
     const { id } = req.params as { id: string };
-    if (!z.string().uuid().safeParse(id).success) throw notFound('Question not found');
+    if (!isUuid(id)) throw notFound('Question not found');
     // answered questions are archived (attempt history, refunds and stats stay intact);
     // only a question nobody has ever answered is physically removed
     const answered = await query('SELECT 1 FROM attempt_answers WHERE question_id = $1 LIMIT 1', [id]);
@@ -200,7 +201,7 @@ export async function adminQuestionRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/:id/recompute-quality', { preHandler: [moderator] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const score = await recomputeQuality(id);
     return { qualityScore: score };
   });

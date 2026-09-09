@@ -7,6 +7,10 @@ set -euo pipefail
 : "${DATABASE_URL:?DATABASE_URL is required}"
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
+if [ "${NODE_ENV:-}" = "production" ] && [ -z "${BACKUP_GPG_RECIPIENT:-}" ] && [ -z "${BACKUP_S3_URI:-}" ] && [ -z "${BACKUP_COPY_CMD:-}" ]; then
+  echo "refusing: production backup must be encrypted (BACKUP_GPG_RECIPIENT) or copied off-site (BACKUP_S3_URI / BACKUP_COPY_CMD)" >&2
+  exit 2
+fi
 mkdir -p "$BACKUP_DIR"
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 file="$BACKUP_DIR/quiz-$stamp.dump"

@@ -81,7 +81,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       `SELECT u.*, s.quizzes_completed, s.questions_answered, s.correct_total, s.incorrect_total,
               s.best_score, s.total_time_ms, s.perfect_quizzes
        FROM users u LEFT JOIN user_stats s ON s.user_id = u.id
-       WHERE u.username = $1 AND u.status = 'active' AND u.is_guest = false`,
+       WHERE lower(u.username) = lower($1) AND u.status = 'active' AND u.is_guest = false`,
       [username],
     );
     const row = rows[0];

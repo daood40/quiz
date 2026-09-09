@@ -94,6 +94,10 @@ export function startJobs(): void {
     );
     await query(`DELETE FROM analytics_events WHERE created_at < now() - interval '180 days'`);
     await query(`DELETE FROM audit_logs WHERE created_at < now() - interval '400 days'`);
+    // token tables otherwise grow without bound (rotation leaves revoked rows behind)
+    await query(`DELETE FROM refresh_tokens WHERE expires_at < now() - interval '7 days' OR revoked_at < now() - interval '7 days'`);
+    await query(`DELETE FROM password_reset_tokens WHERE expires_at < now() - interval '7 days'`);
+    await query(`DELETE FROM email_verification_tokens WHERE expires_at < now() - interval '7 days'`);
   });
 
   // leaderboard snapshot freshness for hot boards

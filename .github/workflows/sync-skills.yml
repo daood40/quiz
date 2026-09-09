@@ -29,17 +29,20 @@ jobs:
         run: git clone --depth 1 https://github.com/daood40/skills.git /tmp/skills
 
       - name: نسخ الحزم المطلوبة
+        env:
+          PACKS: ${{ inputs.packs }}
+          CLEAN: ${{ inputs.clean }}
         run: |
           set -e
           mkdir -p .claude/skills
 
-          if [ "${{ inputs.clean }}" = "true" ] && [ -f .claude/skills/.synced ]; then
+          if [ "$CLEAN" = "true" ] && [ -f .claude/skills/.synced ]; then
             while read -r s; do
               [ -n "$s" ] && rm -rf ".claude/skills/$s"
             done < .claude/skills/.synced
           fi
 
-          for p in ${{ inputs.packs }}; do
+          for p in $PACKS; do
             if [ "$p" = "all" ]; then
               cp -r /tmp/skills/all/. .claude/skills/
             elif [ -d "/tmp/skills/packs/$p" ]; then
@@ -52,7 +55,7 @@ jobs:
           cp -r /tmp/skills/packs/_index/. .claude/skills/
 
           : > .claude/skills/.synced
-          for p in ${{ inputs.packs }}; do
+          for p in $PACKS; do
             if [ "$p" = "all" ]; then ls /tmp/skills/all >> .claude/skills/.synced
             else ls "/tmp/skills/packs/$p" >> .claude/skills/.synced; fi
           done
@@ -72,6 +75,8 @@ jobs:
           [ "$fail" = "0" ]
 
       - name: حفظ التغييرات
+        env:
+          PACKS: ${{ inputs.packs }}
         run: |
           git config user.name "skills-sync"
           git config user.email "actions@users.noreply.github.com"
@@ -79,6 +84,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "لا جديد — المهارات محدّثة."
           else
-            git commit -m "sync skills: ${{ inputs.packs }}"
+            git commit -m "sync skills: $PACKS"
             git push
           fi

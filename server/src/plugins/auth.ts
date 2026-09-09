@@ -17,7 +17,7 @@ declare module 'fastify' {
  * Bans, role changes and password resets bump users.sessions_valid_after; any access token issued
  * before that instant is rejected. Cached briefly per user so it costs ~1 query / user / 30s.
  */
-const VALID_AFTER_TTL_MS = 30_000;
+const VALID_AFTER_TTL_MS = 10_000; // upper bound for a ban/role change to reach every instance
 const validAfterCache = new Map<string, { validAfter: number; fetchedAt: number }>();
 export function invalidateSessionCache(userId?: string): void {
   if (userId) validAfterCache.delete(userId);

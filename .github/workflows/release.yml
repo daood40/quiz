@@ -27,9 +27,11 @@ jobs:
           fetch-depth: 0
       - name: Resolve tag
         id: tag
+        env:
+          VERSION_INPUT: ${{ github.event.inputs.version }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="v${{ github.event.inputs.version }}"
+            TAG="v${VERSION_INPUT}"
           else
             TAG="${GITHUB_REF_NAME}"
           fi

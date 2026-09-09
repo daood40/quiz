@@ -37,14 +37,18 @@ export async function migrate(): Promise<string[]> {
       continue;
     }
     const client = await pool.connect();
+    // *_concurrent.sql: CREATE INDEX CONCURRENTLY cannot run inside a transaction; such files must be idempotent
+    const concurrent = file.endsWith('_concurrent.sql');
     try {
-      await client.query('BEGIN');
+      if (!concurrent) await client.query('BEGIN');
+      // never let a migration hold a lock forever behind live traffic
+      await client.query("SET lock_timeout = '5s'; SET statement_timeout = '120s'");
       await client.query(sql);
       await client.query('INSERT INTO schema_migrations (name, checksum) VALUES ($1, $2)', [file, checksum]);
-      await client.query('COMMIT');
+      if (!concurrent) await client.query('COMMIT');
       ran.push(file);
     } catch (err) {
-      await client.query('ROLLBACK').catch(() => undefined);
+      if (!concurrent) await client.query('ROLLBACK').catch(() => undefined);
       throw new Error(`Migration ${file} failed: ${(err as Error).message}`, { cause: err });
     } finally {
       client.release();

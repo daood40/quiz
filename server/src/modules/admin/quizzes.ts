@@ -5,6 +5,7 @@ import { badRequest, notFound } from '../../core/errors.js';
 import { query } from '../../db/pool.js';
 import { requireRole } from '../../plugins/auth.js';
 import { pickQuestions } from '../quizzes/pool.js';
+import { intQuery, uuidParam } from '../../core/validate.js';
 
 const quizSchema = z.object({
   title: z.record(z.string()).default({}),
@@ -25,8 +26,8 @@ export async function adminQuizRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/', { preHandler: [requireRole('moderator')] }, async (req) => {
     const q = req.query as Record<string, string>;
-    const limit = Math.min(Number(q.limit ?? 25), 100);
-    const offset = Math.max(Number(q.offset ?? 0), 0);
+    const limit = intQuery(q.limit, 25, 1, 100);
+    const offset = intQuery(q.offset, 0, 0, 1_000_000);
     const { rows } = await query(
       `SELECT id, title, mode, category_id, difficulty, question_count,
               cardinality(question_ids) AS fixed_questions, status, starts_at, ends_at, created_at,
@@ -71,7 +72,7 @@ export async function adminQuizRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/:id/status', { preHandler: [admin] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const parsed = z.object({ status: z.enum(['draft', 'scheduled', 'active', 'paused', 'ended', 'archived']) }).safeParse(req.body);
     if (!parsed.success) throw badRequest('Invalid status');
     const { rowCount } = await query('UPDATE quizzes SET status = $2, updated_at = now() WHERE id = $1', [id, parsed.data.status]);

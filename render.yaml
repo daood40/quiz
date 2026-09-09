@@ -5,7 +5,8 @@ services:
     name: quiz-api
     runtime: docker
     plan: starter
-    healthCheckPath: /health
+    region: frankfurt   # closest Render region to North Africa / the Gulf (~60-110 ms)
+    healthCheckPath: /ready   # DB + pool + jobs; /health is liveness only
     envVars:
       - key: NODE_ENV
         value: production
@@ -39,5 +40,6 @@ services:
         sync: false
 databases:
   - name: quiz-db
+    region: frankfurt
     plan: basic-256mb
     postgresMajorVersion: "16"

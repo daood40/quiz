@@ -114,7 +114,7 @@ export async function register(input: z.infer<typeof registerSchema>, ip: string
   const passwordHash = await bcrypt.hash(input.password, env.bcryptRounds);
   const row = await withTransaction(async (client) => {
     const dupe = await client.query(
-      'SELECT 1 FROM users WHERE email = $1 OR username = $2 LIMIT 1',
+      'SELECT 1 FROM users WHERE email = $1 OR lower(username) = lower($2) LIMIT 1',
       [input.email, input.username],
     );
     if (dupe.rowCount) throw conflict('Email or username already in use');
@@ -151,19 +151,21 @@ export async function register(input: z.infer<typeof registerSchema>, ip: string
 // Per-identifier brute-force lockout (in-process; complements the IP limiter which a proxy can blur).
 const LOGIN_MAX_FAILURES = 10;
 const LOGIN_LOCK_MS = 15 * 60 * 1000;
-const loginFailures = new Map<string, { count: number; until: number }>();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+/** failures inside a window anchored at the first failure; `until` becomes a hard lock only at the threshold */
+const loginFailures = new Map<string, { count: number; until: number; locked: boolean }>();
 function loginKey(identifier: string): string { return identifier.trim().toLowerCase(); }
 export function _resetLoginFailures(): void { loginFailures.clear(); }
 
 export async function login(input: z.infer<typeof loginSchema>, ip: string): Promise<AuthResult> {
   const key = loginKey(input.identifier);
   const lock = loginFailures.get(key);
-  if (lock && lock.count >= LOGIN_MAX_FAILURES && lock.until > Date.now()) {
+  if (lock && lock.locked && lock.until > Date.now()) {
     audit(null, 'auth.login_locked', 'user', key, {}, ip);
     throw new AppError(429, 'too_many_attempts', 'Too many failed attempts; try again later');
   }
   const { rows } = await query(
-    `SELECT * FROM users WHERE (email = $1 OR username = $1) AND is_guest = false LIMIT 1`,
+    `SELECT * FROM users WHERE (email = $1 OR lower(username) = lower($1)) AND is_guest = false LIMIT 1`,
     [input.identifier],
   );
   const row = rows[0];
@@ -173,7 +175,12 @@ export async function login(input: z.infer<typeof loginSchema>, ip: string): Pro
   if (!row || !ok) {
     const cur = loginFailures.get(key);
     const count = cur && cur.until > Date.now() ? cur.count + 1 : 1;
-    loginFailures.set(key, { count, until: Date.now() + LOGIN_LOCK_MS });
+    const locked = count >= LOGIN_MAX_FAILURES;
+    // the window never slides on a failure (an attacker cannot keep a victim locked out forever);
+    // hitting the threshold starts one fixed lock period
+    const until = locked ? Date.now() + LOGIN_LOCK_MS : cur && cur.until > Date.now() ? cur.until : Date.now() + LOGIN_WINDOW_MS;
+    loginFailures.set(key, { count, until, locked });
+    if (loginFailures.size > 50_000) for (const [k, v] of loginFailures) if (v.until < Date.now()) loginFailures.delete(k);
     audit(row?.id ?? null, 'auth.login_failed', 'user', row?.id ?? key, { attempt: count }, ip);
     throw unauthorized('Invalid credentials');
   }
@@ -212,9 +219,14 @@ export async function refresh(refreshToken: string): Promise<AuthResult> {
   );
   const row = rows[0];
   if (!row) throw unauthorized('Invalid refresh token');
-  if (row.revoked_at || new Date(row.expires_at).getTime() < Date.now()) {
+  if (row.revoked_at) {
+    // a revoked token being replayed means the chain leaked: kill every session of this user
+    await query('UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL', [row.id]);
+    await query('UPDATE users SET sessions_valid_after = now() WHERE id = $1', [row.id]);
+    audit(row.id, 'auth.refresh_reuse', 'user', row.id);
     throw unauthorized('Refresh token expired');
   }
+  if (new Date(row.expires_at).getTime() < Date.now()) throw unauthorized('Refresh token expired');
   if (row.status !== 'active') throw forbidden('Account is not active');
   // rotation: revoke old token, issue new pair
   await query('UPDATE refresh_tokens SET revoked_at = now() WHERE id = $1', [row.rt_id]);
@@ -276,7 +288,9 @@ export async function changePassword(userId: string, current: string, next: stri
   const ok = await bcrypt.compare(current, rows[0].password_hash ?? '');
   if (!ok) throw unauthorized('Current password is incorrect');
   const passwordHash = await bcrypt.hash(next, env.bcryptRounds);
-  await query('UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2', [passwordHash, userId]);
+  // new password ⇒ every other session (and any stolen refresh token) ends now
+  await query('UPDATE users SET password_hash = $1, sessions_valid_after = now(), updated_at = now() WHERE id = $2', [passwordHash, userId]);
+  await query('UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL', [userId]);
   audit(userId, 'auth.password_changed', 'user', userId);
 }
 
@@ -320,6 +334,29 @@ export async function deleteAccount(userId: string, password: string): Promise<v
     );
     await client.query('UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1', [userId]);
     await client.query('UPDATE users SET sessions_valid_after = now() WHERE id = $1', [userId]);
+    // personal data that has no aggregate value: gone immediately (attempts stay, tied to the anonymised row)
+    for (const sql of [
+      'DELETE FROM password_reset_tokens WHERE user_id = $1',
+      'DELETE FROM email_verification_tokens WHERE user_id = $1',
+      'DELETE FROM question_bookmarks WHERE user_id = $1',
+      'DELETE FROM friendships WHERE user_id = $1 OR friend_id = $1',
+      'DELETE FROM group_members WHERE user_id = $1',
+      'DELETE FROM notifications WHERE user_id = $1',
+      'DELETE FROM user_achievements WHERE user_id = $1',
+      'DELETE FROM analytics_events WHERE user_id = $1',
+      `UPDATE audit_logs SET ip = '' WHERE actor_id = $1`,
+    ]) await client.query(sql, [userId]);
+    // cached leaderboard snapshots carry the old username/avatar until they expire — scrub them now
+    await client.query(
+      `UPDATE leaderboard_snapshots SET entries = (
+         SELECT COALESCE(jsonb_agg(
+           CASE WHEN e->>'userId' = $1
+                THEN e || jsonb_build_object('username', 'deleted_' || left($1, 8), 'displayName', 'Deleted User', 'avatar', '')
+                ELSE e END ORDER BY (e->>'rank')::int), '[]'::jsonb)
+         FROM jsonb_array_elements(entries) e)
+       WHERE entries::text LIKE '%' || $1 || '%'`,
+      [userId],
+    );
   });
   audit(userId, 'auth.account_deleted', 'user', userId);
 }

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { invalidateCategoryCache } from '../categories/routes.js';
 import { audit } from '../../core/audit.js';
 import { badRequest, forbidden, notFound } from '../../core/errors.js';
-import { uuidParam } from '../../core/validate.js';
+import { intQuery, uuidParam } from '../../core/validate.js';
 import { DEFAULT_SETTINGS, getSettings, updateSettings } from '../../core/settings.js';
 import { query } from '../../db/pool.js';
 import { requireRole, invalidateSessionCache } from '../../plugins/auth.js';
@@ -105,8 +105,8 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     if (q.search) where.push(`(username ILIKE ${add(`%${q.search}%`)} OR email ILIKE $${params.length} OR display_name ILIKE $${params.length})`);
     if (q.role) where.push(`role = ${add(q.role)}`);
     if (q.status) where.push(`status = ${add(q.status)}`);
-    const limit = Math.min(Number(q.limit ?? 25), 100);
-    const offset = Math.max(Number(q.offset ?? 0), 0);
+    const limit = intQuery(q.limit, 25, 1, 100);
+    const offset = intQuery(q.offset, 0, 0, 1_000_000);
     const total = await query(`SELECT count(*) AS n FROM users WHERE ${where.join(' AND ')}`, params);
     const { rows } = await query(
       `SELECT id, email, username, display_name, role, status, level, xp, total_points, country,
@@ -196,8 +196,8 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.get('/reports', { preHandler: [moderator] }, async (req) => {
     const q = req.query as Record<string, string>;
     const status = q.status ?? 'open';
-    const limit = Math.min(Number(q.limit ?? 25), 100);
-    const offset = Math.max(Number(q.offset ?? 0), 0);
+    const limit = intQuery(q.limit, 25, 1, 100);
+    const offset = intQuery(q.offset, 0, 0, 1_000_000);
     const { rows } = await query(
       `SELECT r.*, u.username AS reporter, q.content->'prompt' AS prompt, q.type, q.status AS question_status
        FROM question_reports r
@@ -230,7 +230,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   // ---------- anti-cheat review ----------
   app.get('/suspicious', { preHandler: [moderator] }, async (req) => {
     const q = req.query as Record<string, string>;
-    const limit = Math.min(Number(q.limit ?? 25), 100);
+    const limit = intQuery(q.limit, 25, 1, 100);
     const { rows } = await query(
       `SELECT a.id, a.user_id, u.username, a.mode, a.score, a.max_score, a.suspicion, a.flags,
               a.server_duration_ms, a.created_at
@@ -389,8 +389,8 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   // ---------- audit log ----------
   app.get('/audit', { preHandler: [admin] }, async (req) => {
     const q = req.query as Record<string, string>;
-    const limit = Math.min(Math.max(Number(q.limit) || 50, 1), 200);
-    const offset = Math.max(Number(q.offset) || 0, 0);
+    const limit = intQuery(q.limit, 50, 1, 200);
+    const offset = intQuery(q.offset, 0, 0, 1_000_000);
     const params: unknown[] = [];
     const where: string[] = ['1=1'];
     if (q.action) {

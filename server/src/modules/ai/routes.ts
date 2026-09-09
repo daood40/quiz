@@ -7,7 +7,8 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { audit } from '../../core/audit.js';
 import { AppError, badRequest, forbidden, notFound } from '../../core/errors.js';
-import { query } from '../../db/pool.js';
+import { query, withTransaction } from '../../db/pool.js';
+import { getSettings } from '../../core/settings.js';
 import { requireRole } from '../../plugins/auth.js';
 import { registry } from '../questions/engine/index.js';
 import { computeContentHash } from '../questions/service.js';
@@ -70,10 +71,26 @@ export async function aiRoutes(app: FastifyInstance): Promise<void> {
 
     const provider = getAiProvider();
     if (!provider) throw new AppError(503, 'ai_disabled', 'AI drafting is not configured (set AI_PROVIDER and AI_API_KEY on the server)');
+    if (!(await getSettings()).aiEnabled) throw new AppError(503, 'ai_disabled', 'AI drafting is switched off by an administrator');
 
-    const u = await usage(req.userId!);
-    if (u.user >= dailyPerUser()) throw new AppError(429, 'ai_quota_user', 'Daily AI quota reached for your account');
-    if (u.platform >= dailyPlatform()) throw new AppError(429, 'ai_quota_platform', 'Daily AI quota reached for the platform');
+    // quota check + reservation in one short transaction under an advisory lock: two concurrent
+    // requests can no longer both pass the count. The reserved row is finalised after the call.
+    const reservedId = await withTransaction(async (client) => {
+      await client.query('SELECT pg_advisory_xact_lock($1)', [7_412_011]);
+      const { rows } = await client.query<{ user_n: string; platform_n: string }>(
+        `SELECT count(*) FILTER (WHERE user_id = $1) AS user_n, count(*) AS platform_n
+         FROM ai_requests WHERE created_at >= date_trunc('day', now()) AND status <> 'blocked'`,
+        [req.userId],
+      );
+      if (Number(rows[0]?.user_n ?? 0) >= dailyPerUser()) throw new AppError(429, 'ai_quota_user', 'Daily AI quota reached for your account');
+      if (Number(rows[0]?.platform_n ?? 0) >= dailyPlatform()) throw new AppError(429, 'ai_quota_platform', 'Daily AI quota reached for the platform');
+      const ins = await client.query<{ id: string }>(
+        `INSERT INTO ai_requests (user_id, kind, provider, model, category_id, requested, status)
+         VALUES ($1,'draft_questions',$2,$3,$4,$5,'pending') RETURNING id`,
+        [req.userId, provider.name, provider.model, cat.rows[0].id, input.count],
+      );
+      return ins.rows[0].id;
+    });
 
     const categoryName = typeof cat.rows[0].name === 'object' && cat.rows[0].name
       ? ((cat.rows[0].name as Record<string, string>)[input.language] ?? (cat.rows[0].name as Record<string, string>).en ?? cat.rows[0].slug)
@@ -83,8 +100,7 @@ export async function aiRoutes(app: FastifyInstance): Promise<void> {
     try {
       result = await provider.draftQuestions({ categoryName, difficulty: input.difficulty, language: input.language, count: input.count, topic: input.topic });
     } catch (err) {
-      await query(`INSERT INTO ai_requests (user_id, kind, provider, model, category_id, requested, status, error) VALUES ($1,'draft_questions',$2,$3,$4,$5,'error',$6)`,
-        [req.userId, provider.name, provider.model, cat.rows[0].id, input.count, (err as Error).message.slice(0, 500)]);
+      await query(`UPDATE ai_requests SET status = 'error', error = $2 WHERE id = $1`, [reservedId, (err as Error).message.slice(0, 500)]);
       throw new AppError(502, 'ai_provider_error', 'The AI provider failed; nothing was saved');
     }
 
@@ -112,9 +128,8 @@ export async function aiRoutes(app: FastifyInstance): Promise<void> {
       accepted.push(rows[0].id);
     }
     await query(
-      `INSERT INTO ai_requests (user_id, kind, provider, model, category_id, requested, produced, accepted, input_tokens, output_tokens)
-       VALUES ($1,'draft_questions',$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [req.userId, provider.name, result.model, cat.rows[0].id, input.count, result.questions.length, accepted.length, result.inputTokens, result.outputTokens],
+      `UPDATE ai_requests SET status = 'ok', model = $2, produced = $3, accepted = $4, input_tokens = $5, output_tokens = $6 WHERE id = $1`,
+      [reservedId, result.model, result.questions.length, accepted.length, result.inputTokens, result.outputTokens],
     );
     audit(req.userId, 'ai.draft_questions', 'category', cat.rows[0].id, { requested: input.count, accepted: accepted.length, model: result.model }, req.ip);
     return { drafted: accepted.length, produced: result.questions.length, questionIds: accepted, errors, status: 'pending_review' };

@@ -41,6 +41,13 @@ export async function buildApp(): Promise<FastifyInstance> {
         },
     bodyLimit: 5 * 1024 * 1024,
     trustProxy: env.trustProxy,
+    // router-level errors (param too long, bad version header) bypass setErrorHandler — same envelope, no echo of the URL
+    frameworkErrors: (error, _req, reply) => {
+      const status = error.statusCode && error.statusCode >= 400 ? error.statusCode : 400;
+      const body = { error: { code: status === 414 ? 'uri_too_long' : 'bad_request', message: status === 414 ? 'Request path too long' : 'Bad request' } };
+      void reply.raw.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+      reply.raw.end(JSON.stringify(body));
+    },
     // honour an upstream correlation id (load balancer / gateway), otherwise generate one
     genReqId: (req: IncomingMessage) => {
       const incoming = req.headers['x-request-id'];
@@ -136,7 +143,8 @@ export async function buildApp(): Promise<FastifyInstance> {
       ok: true,
       db: { ok: true, latencyMs: Date.now() - started, pool: { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount } },
       jobs: { failing, tracked: jobs.rows.length },
-      version: process.env.npm_package_version ?? null,
+      version: process.env.APP_VERSION ?? process.env.npm_package_version ?? null,
+      commit: process.env.GIT_SHA ?? null,
       ts: new Date().toISOString(),
     };
   });

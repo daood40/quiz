@@ -5,6 +5,7 @@ import { badRequest } from '../../core/errors.js';
 import { query, withTransaction } from '../../db/pool.js';
 import { requireRole } from '../../plugins/auth.js';
 import { computeContentHash, questionInputSchema, validateQuestionOrThrow } from '../questions/service.js';
+import { intQuery } from '../../core/validate.js';
 
 /** RFC-4180-ish CSV parser (quotes, escaped quotes, newlines in fields). */
 export function parseCsv(text: string): string[][] {
@@ -269,7 +270,7 @@ export async function importExportRoutes(app: FastifyInstance): Promise<void> {
     if (q.difficulty) where.push(`q.difficulty = ${add(q.difficulty)}`);
     if (q.language) where.push(`q.language = ${add(q.language)}`);
     if (q.type) where.push(`q.type = ${add(q.type)}`);
-    const limit = Math.min(Number(q.limit ?? 10000), 50000);
+    const limit = intQuery(q.limit, 10000, 1, 50000);
     const { rows } = await query(
       `SELECT q.*, c.slug AS category_slug FROM questions q
        LEFT JOIN categories c ON c.id = q.category_id

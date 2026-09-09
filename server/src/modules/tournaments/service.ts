@@ -8,6 +8,7 @@ import { query, withTransaction } from '../../db/pool.js';
 import { requireAccount, requireRole } from '../../plugins/auth.js';
 import { contextHooks, startAttempt } from '../quizzes/attempts.js';
 import { pickQuestions } from '../quizzes/pool.js';
+import { uuidParam } from '../../core/validate.js';
 
 /**
  * Tournament Engine — single-elimination brackets.
@@ -268,7 +269,7 @@ export async function tournamentRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/:id', async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     return tournamentDetail(id, req.userId);
   });
 
@@ -304,7 +305,7 @@ export async function tournamentRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/:id/join', { preHandler: [requireAccount] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const { rows } = await query('SELECT status, max_players FROM tournaments WHERE id = $1', [id]);
     const t = rows[0];
     if (!t) throw notFound('Tournament not found');
@@ -319,14 +320,14 @@ export async function tournamentRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/:id/start', { preHandler: [requireRole('admin')] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     await startTournament(id, req.userId);
     return tournamentDetail(id, req.userId);
   });
 
   /** Play my current match. */
   app.post('/:id/play', { preHandler: [requireAccount] }, async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const mm = await query(
       `SELECT m.* FROM tournament_matches m JOIN tournament_rounds r ON r.id = m.round_id
        WHERE r.tournament_id = $1 AND m.status = 'running' AND (m.player1_id = $2 OR m.player2_id = $2)`,

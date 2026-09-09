@@ -1,4 +1,27 @@
 # memory/FIXES.md   (الأحدث في الأعلى)
+## 2026-09-09 — 414 بلا غلاف الخطأ الموحّد
+العَرَض: مسار أطول من 100 حرف يعيد JSON بصيغة Fastify الافتراضية ويردّد الرابط كاملًا.
+السبب الجذري: أخطاء الموجّه (FST_ERR_MAX_PARAM_LENGTH) لا تمر عبر setErrorHandler.
+الحل: خيار `frameworkErrors` يكتب `{error:{code:'uri_too_long'}}` بلا صدى للرابط. الملف: server/src/app.ts
+الوقاية: اختبر `/api/v1/x/<300 حرف>` ضمن اختبارات التصلّب.
+## 2026-09-09 — معرّفات مشوّهة تعطي 500
+العَرَض: `GET /tournaments/not-a-uuid` وأمثاله → خطأ تحويل PostgreSQL (500).
+السبب الجذري: 12 مسارًا تقرأ `req.params.id` بلا تحقق.
+الحل: `uuidParam()` في كل مسار؛ `isUuid()` + 404 حيث لا يجوز كشف الوجود (التحديات، حذف الأسئلة). الملفات: modules/{tournaments,monthly,groups,challenges,quizzes,admin}/*.ts
+الوقاية: لا تقرأ `req.params` مباشرة؛ استخدم `uuidParam`.
+## 2026-09-09 — `limit=abc` يسقط الاستعلام
+العَرَض: `Number('abc')` = NaN يصل إلى SQL.
+الحل: `intQuery(value, fallback, min, max)` في core/validate.ts في 10 مواضع ترقيم.
+الوقاية: كل معامل رقمي من query عبر `intQuery`.
+## 2026-09-09 — بيانات شخصية تبقى بعد حذف الحساب
+العَرَض: اسم المستخدم القديم في `leaderboard_snapshots.entries` و IP في `audit_logs`، وعلامات/أصدقاء/إشعارات باقية.
+الحل: `deleteAccount` يحذف 8 جداول تابعة ويمسح IP ويُبدّل الاسم داخل اللقطات. الملف: modules/auth/service.ts
+الوقاية: أي جدول جديد يحمل user_id يُضاف إلى قائمة الحذف في `deleteAccount`.
+## 2026-09-09 — `resumeAttempt` غير موجودة (تعديل آلي مكسور)
+العَرَض: فشل tsc بعد دفعة تعديلات بسكربت.
+السبب الجذري: سكربت التعديل أدخل استدعاءً لدالة لم تُكتب بعد.
+الحل: كتابة `resumeAttempt` في quizzes/attempts.ts وحصر الاختصار في solo.
+الوقاية: `tsc --noEmit` بعد كل سكربت تعديل قبل المتابعة.
 ## 2026-09-09 — Android build: "Value is null" في build.gradle
 العَرَض: فشل gradle عند تقييم app/build.gradle سطر versionCode.
 السبب الجذري: Groovy يفسّر `versionCode (x ?: y).toInteger()` كاستدعاء دالة ثم `.toInteger()` على null.

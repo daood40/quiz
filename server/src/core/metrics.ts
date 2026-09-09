@@ -47,6 +47,11 @@ export function registerMetrics(app: FastifyInstance): void {
   // scrape endpoint: protect at the network edge (or set METRICS_TOKEN) — never public
   app.get('/metrics', async (req, reply) => {
     const token = process.env.METRICS_TOKEN;
+    // production without a token: the endpoint does not exist (fail closed) — set METRICS_TOKEN to scrape
+    if (!token && process.env.NODE_ENV === 'production') {
+      reply.status(404);
+      return { error: { code: 'not_found', message: 'Not found' } };
+    }
     if (token && req.headers.authorization !== `Bearer ${token}`) {
       reply.status(401);
       return { error: { code: 'unauthorized', message: 'metrics token required' } };

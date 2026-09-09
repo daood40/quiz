@@ -1,7 +1,9 @@
 /** Text & number normalization used by answer matching. */
 
-const ARABIC_DIACRITICS = /[ً-ٰٟ]/g;
-const TATWEEL = /ـ/g;
+const ARABIC_DIACRITICS = /[\u064B-\u0652\u0670\u0640]/g; // harakat, dagger alif, tatweel
+/** zero-width / bidi / soft-hyphen characters that keyboards and copy-paste inject */
+const INVISIBLE = /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF\u00AD]/g;
+const ARABIC_INDIC_DIGITS = /[\u0660-\u0669\u06F0-\u06F9]/g;
 
 export interface TextMatchConfig {
   caseSensitive?: boolean;
@@ -13,13 +15,14 @@ export interface TextMatchConfig {
 }
 
 export function normalizeText(input: string, cfg: TextMatchConfig = {}): string {
-  let s = String(input).trim().replace(/\s+/g, ' ');
+  let s = String(input).normalize('NFKC').replace(INVISIBLE, '').trim().replace(/\s+/g, ' ');
   if (!cfg.caseSensitive) s = s.toLowerCase();
+  s = s.replace(ARABIC_INDIC_DIGITS, (d) => String((d.charCodeAt(0) - (d < '\u06F0' ? 0x0660 : 0x06f0))));
   if (cfg.normalizeArabic !== false) {
     s = s
       .replace(ARABIC_DIACRITICS, '')
-      .replace(TATWEEL, '')
       .replace(/[أإآٱ]/g, 'ا')
+      .replace(/(^|\s)ء(?=\s|$)/g, '$1')
       .replace(/ى/g, 'ي')
       .replace(/ؤ/g, 'و')
       .replace(/ئ/g, 'ي')
@@ -71,9 +74,9 @@ export interface NumericMatchConfig {
 export function parseNumeric(input: unknown): number | null {
   if (typeof input === 'number') return Number.isFinite(input) ? input : null;
   if (typeof input !== 'string') return null;
-  let s = input.trim().replace(/\s/g, '').replace(',', '.');
-  // Arabic-Indic digits
-  s = s.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660));
+  let s = input.normalize('NFKC').replace(INVISIBLE, '').trim().replace(/\s/g, '').replace(/[,٫]/g, '.');
+  // Arabic-Indic (and Persian) digits, Arabic percent sign
+  s = s.replace(ARABIC_INDIC_DIGITS, (d) => String((d.charCodeAt(0) - (d < '\u06F0' ? 0x0660 : 0x06f0)))).replace('٪', '%');
   let percent = false;
   if (s.endsWith('%')) {
     percent = true;

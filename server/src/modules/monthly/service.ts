@@ -5,6 +5,7 @@ import { requireAccount } from '../../plugins/auth.js';
 import { fetchLeaderboard } from '../leaderboards/routes.js';
 import { startAttempt } from '../quizzes/attempts.js';
 import { pickQuestions } from '../quizzes/pool.js';
+import { intQuery, uuidParam } from '../../core/validate.js';
 
 export function currentYearMonth(now: Date = new Date()): string {
   return now.toISOString().slice(0, 7);
@@ -115,11 +116,11 @@ export async function monthlyRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/:id/leaderboard', async (req) => {
-    const { id } = req.params as { id: string };
+    const id = uuidParam((req.params as { id: string }).id);
     const q = req.query as { limit?: string };
     const exists = await query('SELECT 1 FROM monthly_challenges WHERE id = $1', [id]);
     if (!exists.rowCount) throw badRequest('Unknown monthly challenge');
-    const { entries, me } = await fetchLeaderboard('monthly_challenge', id, Math.min(Number(q.limit ?? 100), 500), req.userId);
+    const { entries, me } = await fetchLeaderboard('monthly_challenge', id, intQuery(q.limit, 100, 1, 500), req.userId);
     return { entries, me };
   });
 }
