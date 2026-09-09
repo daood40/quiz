@@ -8,8 +8,8 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // CI passes these from package.json (see .github/workflows/mobile.yml); defaults keep local builds working
-        versionCode (System.getenv("APP_VERSION_CODE") ?: "10100").toInteger()
-        versionName (System.getenv("APP_VERSION_NAME") ?: "1.1.0")
+        versionCode = (System.getenv("APP_VERSION_CODE") ?: "10100").toInteger()
+        versionName = (System.getenv("APP_VERSION_NAME") ?: "1.1.0")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
