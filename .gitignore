@@ -11,3 +11,12 @@ web/dist/
 server/dist/
 .vite/
 *.tsbuildinfo
+
+# Claude Code per-machine settings
+.claude/settings.local.json
+# signing material (never commit)
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+key.properties

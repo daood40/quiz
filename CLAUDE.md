@@ -1,3 +1,23 @@
+# Quiz Platform
+منصة أسئلة ومسابقات ثنائية اللغة (عربي/إنجليزي): موقع + PWA + تطبيق Android/iOS بنفس الكود.
+
+## المكدّس
+React 18 + Vite (web/) · Fastify 5 + TypeScript + PostgreSQL 16 (server/) · Capacitor 7 (web/android، web/ios). CSS خام برموز في أعلى `web/src/styles.css`. كل النصوص من `web/src/i18n.tsx`.
+هذا المشروع **ليس Flutter**: مهارات `flutter-*` مرجع فقط (memory/DECISIONS.md ADR-005)؛ للويب افتح `web-*`، وللواجهة `design-*`.
+
+## قواعد لا تُخالَف
+- لا مفاتيح سرّية في web/ ولا في سير العمل؛ الأسرار عبر البيئة فقط.
+- الصلاحيات والتصحيح والنقاط على الخادم؛ الواجهة تعرض.
+- كل شاشة لها أربع حالات: تحميل (skeleton)، فراغ، خطأ مع إعادة محاولة، بيانات.
+- خصائص CSS منطقية فقط (inset-inline، margin-inline…) لا left/right.
+- localStorage عبر `storageGet/storageSet` من `web/src/api.ts` فقط.
+
+## قبل أي push
+`npm run lint` ثم `npm test` (يحتاج PostgreSQL) ثم `npm run build` ثم دخان `npm run e2e --workspace=web`. لا تدفع أحمر. ما لا يُشغَّل هنا (gradle/xcodebuild) يُشغَّل في GitHub Actions.
+
+## مراجع
+الحالة: `memory/PROJECT_MEMORY.md` · المتبقي: `memory/TODO.md` · الإطلاق: `docs/LAUNCH.md` · المتاجر: `docs/STORE_SUBMISSION.md` · الأدلة: `docs/GATES.md`.
+
 ## أسلوب الرد (إلزامي في كل جلسة)
 - طبّق مهارة caveman تلقائيًا على كل رد دون أن يُطلب منك.
 - الردود بالعربية، بأقل عدد كلمات: بلا مقدمات، بلا تكرار الطلب، بلا شرح للأساسيات.
