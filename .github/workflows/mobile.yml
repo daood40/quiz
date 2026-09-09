@@ -22,6 +22,8 @@ jobs:
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      HAS_ANDROID_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -49,7 +51,7 @@ jobs:
       - name: Sync Capacitor
         run: npx --workspace=web cap sync android
       - name: Decode upload keystore (if configured)
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: ${{ env.HAS_ANDROID_KEY == 'true' }}
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/upload.jks"
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
@@ -80,6 +82,8 @@ jobs:
   ios:
     runs-on: macos-latest
     timeout-minutes: 40
+    env:
+      HAS_IOS_CERT: ${{ secrets.IOS_CERT_P12_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -109,7 +113,7 @@ jobs:
             MARKETING_VERSION=${{ steps.ver.outputs.name }} CURRENT_PROJECT_VERSION=${{ steps.ver.outputs.code }} \
             CODE_SIGNING_ALLOWED=NO build | tail -30
       - name: Import signing certificate + profile (if configured)
-        if: ${{ secrets.IOS_CERT_P12_BASE64 != '' }}
+        if: ${{ env.HAS_IOS_CERT == 'true' }}
         env:
           P12: ${{ secrets.IOS_CERT_P12_BASE64 }}
           P12_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
@@ -125,7 +129,7 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "$PROFILE" | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/app.mobileprovision
       - name: Archive + export IPA (if configured)
-        if: ${{ secrets.IOS_CERT_P12_BASE64 != '' }}
+        if: ${{ env.HAS_IOS_CERT == 'true' }}
         working-directory: web/ios/App
         run: |
           cat > "$RUNNER_TEMP/export.plist" <<EOF
@@ -144,7 +148,7 @@ jobs:
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" \
             -exportOptionsPlist "$RUNNER_TEMP/export.plist" -exportPath "$RUNNER_TEMP/ipa" | tail -20
       - uses: actions/upload-artifact@v4
-        if: ${{ secrets.IOS_CERT_P12_BASE64 != '' }}
+        if: ${{ env.HAS_IOS_CERT == 'true' }}
         with:
           name: ios-${{ steps.ver.outputs.name }}
           path: ${{ runner.temp }}/ipa/*.ipa
@@ -154,5 +158,5 @@ jobs:
           {
             echo "### iOS ${{ steps.ver.outputs.name }} (build ${{ steps.ver.outputs.code }})"
             echo "- API: \`${{ env.MOBILE_API_BASE }}\`"
-            if [ -n "${{ secrets.IOS_CERT_P12_BASE64 }}" ]; then echo "- IPA exported for App Store Connect"; else echo "- Compiled for the simulator only (add IOS_* secrets to export a signed IPA)"; fi
+            if [ "$HAS_IOS_CERT" = "true" ]; then echo "- IPA exported for App Store Connect"; else echo "- Compiled for the simulator only (add IOS_* secrets to export a signed IPA)"; fi
           } >> "$GITHUB_STEP_SUMMARY"
