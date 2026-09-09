@@ -1,4 +1,9 @@
 # memory/FIXES.md   (الأحدث في الأعلى)
+## 2026-09-09 — CI #34/#35: e2e وfullstack وrestore-drill تفشل معًا
+العَرَض: `apt-get update` ينتهي بـ`Hash Sum mismatch` من dl.google.com فيفشل `playwright install --with-deps` وتثبيت psql.
+السبب الجذري: صورة الـrunner تحمل مصدر apt لـGoogle Chrome معطوبًا لحظيًا؛ خارج المشروع.
+الحل: حذف `/etc/apt/sources.list.d/google*.list` قبل أي apt في الوظائف الثلاث. الملف: .github/workflows/ci.yml
+الوقاية: أي وظيفة تستدعي apt تحذف مصادر الطرف الثالث غير المطلوبة أولًا.
 ## 2026-09-09 — E2E يفشل بعد إعادة كتابة التسميات
 العَرَض: `getByRole('button', {name: /Start Quiz/})` مهلة 30 ثانية.
 السبب الجذري: التسميات الإنجليزية صارت sentence case ("Start quiz") وزر الإجابة صار "Confirm answer"، والدخان يحتاج بناء Demo بـ`VITE_BASE=/quiz/`.

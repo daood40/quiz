@@ -80,7 +80,11 @@ jobs:
           VITE_DEMO: '1'
           VITE_BASE: /quiz/
       - name: Install Chromium
-        run: npx --workspace=web playwright install --with-deps chromium
+        # the runner image ships a Google Chrome apt source that intermittently serves mismatched hashes
+        # and breaks `apt-get update` inside --with-deps; it is not needed here
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google*.list
+          npx --workspace=web playwright install --with-deps chromium
       - name: Smoke E2E (mobile AR + desktop EN)
         run: npm run e2e --workspace=web
 
@@ -127,7 +131,11 @@ jobs:
           SEED_ON_BOOT: 'true'
           SEED_ADMIN_PASSWORD: ChangeMe123!
       - name: Install Chromium
-        run: npx --workspace=web playwright install --with-deps chromium
+        # the runner image ships a Google Chrome apt source that intermittently serves mismatched hashes
+        # and breaks `apt-get update` inside --with-deps; it is not needed here
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google*.list
+          npx --workspace=web playwright install --with-deps chromium
       - name: Full-stack E2E
         run: npm run e2e:full --workspace=web
         env:
@@ -164,6 +172,7 @@ jobs:
       - run: npm ci
       - name: PostgreSQL 16 client
         run: |
+          sudo rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google*.list  # broken third-party mirror must not fail the drill
           sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-common >/dev/null
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
           sudo apt-get install -y -qq postgresql-client-16 >/dev/null
