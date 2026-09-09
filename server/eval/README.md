@@ -1,0 +1,5 @@
+# AI eval golden set
+- **What**: `cases.jsonl` — one deterministic case per line for the admin AI gateway (`POST /api/v1/admin/ai/draft-questions`) and the review gate (`POST /api/v1/admin/questions/:id/status`): ar/en, easy→expert, multiple_choice/true_false/short_answer, SOURCE_LOCK (category and output), malformed provider output, prompt injection, de-duplication.
+- **Run**: `cd server && DATABASE_URL_TEST=postgres://quiz:quiz@127.0.0.1:5432/quiz_platform_test npx vitest run test/ai-eval.test.ts` (no network: the provider is a scripted mock injected by the runner).
+- **Add a case**: append a line with a new, never-reused `id`, `kind` (`draft` | `review`), `tags`, the exact `input` the server receives, and `expect` (see `test/ai-eval.test.ts` for every supported key); a real bug becomes a `regression`-tagged case the same day and is never deleted.
+- **Mocks**: `"mock": "deterministic"` (default) | `"religious_no_source"` | `"bad_index"` — add new behaviours in the runner's `scriptedDrafts`.

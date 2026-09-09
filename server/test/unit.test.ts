@@ -6,6 +6,7 @@ import { getIsoWeekKey } from '../src/modules/quizzes/attempts.js';
 import { parseCsv, toCsv } from '../src/modules/admin/importExport.js';
 import { _testConsume, _testReset } from '../src/core/rateLimit.js';
 import { computeContentHash } from '../src/modules/questions/service.js';
+import { intQuery, isUuid } from '../src/core/validate.js';
 
 const settings = { ...DEFAULT_SETTINGS, streakBonusEnabled: false };  // bonuses isolated per test
 const streaky = { ...DEFAULT_SETTINGS, speedBonusEnabled: false };
@@ -150,5 +151,32 @@ describe('duplicate detection hash', () => {
     expect(h1).toBe(h2);
     const h3 = computeContentHash('multiple_choice', { prompt: { en: 'what is the capital of spain' } }, 'o1');
     expect(h1).not.toBe(h3);
+  });
+});
+
+describe('validate: intQuery / isUuid', () => {
+  it('collapses garbage to the fallback and clamps to [min, max]', () => {
+    expect(intQuery('abc', 20, 1, 100)).toBe(20);
+    expect(intQuery('-5', 20, 1, 100)).toBe(1);
+    expect(intQuery('1e9', 20, 1, 100)).toBe(20);
+    expect(intQuery('  7 ', 20, 1, 100)).toBe(7);
+    expect(intQuery('999999', 20, 1, 100)).toBe(100);
+    expect(intQuery(999999, 20, 1, 100)).toBe(100);
+    expect(intQuery(undefined, 20, 1, 100)).toBe(20);
+    expect(intQuery('NaN', 20, 1, 100)).toBe(20);
+    expect(intQuery('', 20, 1, 100)).toBe(20);
+    expect(intQuery('0', 20, 0, 100)).toBe(0);
+    expect(intQuery('12.9', 20, 1, 100)).toBe(20); // not an integer literal
+    expect(intQuery(Number.NaN, 20, 1, 100)).toBe(20);
+    expect(intQuery(3.7, 20, 1, 100)).toBe(3);
+    expect(intQuery(['5'], 20, 1, 100)).toBe(20); // ?limit=5&limit=5 arrives as an array
+  });
+  it('isUuid accepts only canonical UUIDs', () => {
+    expect(isUuid('123e4567-e89b-12d3-a456-426614174000')).toBe(true);
+    expect(isUuid('not-a-uuid')).toBe(false);
+    expect(isUuid('')).toBe(false);
+    expect(isUuid(undefined)).toBe(false);
+    expect(isUuid(42)).toBe(false);
+    expect(isUuid("123e4567-e89b-12d3-a456-426614174000' OR 1=1 --")).toBe(false);
   });
 });

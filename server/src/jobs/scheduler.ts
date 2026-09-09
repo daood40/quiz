@@ -110,8 +110,8 @@ export function startJobs(): void {
     await query(
       `INSERT INTO notifications (user_id, kind, title, body, data)
        SELECT u.id, 'streak_reminder',
-              '{"en":"Your streak is at risk!","ar":"سلسلتك في خطر!"}'::jsonb,
-              '{"en":"Play a quiz today to keep your streak.","ar":"العب اختبارًا اليوم للحفاظ على سلسلتك."}'::jsonb,
+              '{"en":"Keep your streak going 🔥","ar":"حافظ على سلسلتك 🔥"}'::jsonb,
+              '{"en":"You have not played today. One quiz is enough to keep the streak alive","ar":"لم تلعب اليوم بعد. اختبار واحد يكفي لتبقى السلسلة مستمرة"}'::jsonb,
               jsonb_build_object('streak', u.current_streak)
        FROM users u
        WHERE u.status = 'active' AND u.current_streak >= 2

@@ -254,3 +254,42 @@ describe('composite questions', () => {
     expect(() => registry.score('multi_part', comp, [1, 2, 3])).not.toThrow();
   });
 });
+
+describe('normalization: Unicode hardening (batch C)', () => {
+  it('Arabic-Indic and Persian digits collapse to Latin digits', () => {
+    expect(normalizeText('١٢٣')).toBe('123');
+    expect(normalizeText('۱۲۳')).toBe('123');
+    expect(textMatches('123', '١٢٣')).toBe(true);
+  });
+  it('invisible characters inside a word are ignored', () => {
+    expect(normalizeText('سل‍ام')).toBe('سلام'); // zero-width joiner
+    expect(textMatches('سلام', 'س​ل‏ا⁠م﻿')).toBe(true); // ZWSP, RLM, WJ, BOM
+    expect(textMatches('cafe', 'ca­fe')).toBe(true); // soft hyphen
+  });
+  it('harakat and tatweel do not affect matching', () => {
+    expect(textMatches('سلام', 'سَلَام')).toBe(true);
+    expect(textMatches('سلام', 'سـلام')).toBe(true);
+  });
+  it('alef variants, yaa and taa-marbuta are unified; a standalone hamza token is dropped', () => {
+    expect(textMatches('احمد', 'أحمد')).toBe(true);
+    expect(textMatches('ٱحمد', 'إحمد')).toBe(true);
+    expect(textMatches('مدرسه', 'مدرسة')).toBe(true);
+    expect(textMatches('علي', 'على')).toBe(true);
+    expect(normalizeText('سماء ء')).toBe('سماء'); // standalone token only; hamza inside a word stays
+  });
+  it('NFKC folds presentation forms and full-width characters', () => {
+    expect(normalizeText('ＡＢＣ')).toBe('abc');
+    expect(textMatches('محمد', 'ﻣﺤﻤﺪ')).toBe(true); // Arabic presentation forms
+  });
+  it('parseNumeric accepts the Arabic percent sign and decimal separator', () => {
+    expect(parseNumeric('٧٥٪')).toBeCloseTo(0.75);
+    expect(parseNumeric('1٫5')).toBe(1.5);
+    expect(parseNumeric('١٫٥')).toBe(1.5);
+    expect(parseNumeric('۱۲')).toBe(12);
+    expect(parseNumeric('​42﻿')).toBe(42);
+    expect(parseNumeric('٪')).toBeNull();
+    expect(parseNumeric('')).toBeNull();
+    expect(parseNumeric('   ')).toBeNull();
+    expect(parseNumeric('%')).toBeNull();
+  });
+});

@@ -112,6 +112,8 @@ export async function aiRoutes(app: FastifyInstance): Promise<void> {
       const correct = options[q.correctIndex]?.id;
       const content = { prompt: { [input.language]: q.prompt }, options };
       if (!correct) { errors.push({ index: i, error: 'correct index out of range' }); continue; }
+      // SOURCE_LOCK on the output too: the system prompt is advisory, a leak in a secular category is never filed
+      if (RELIGION_PATTERN.test(`${q.prompt} ${q.options.join(' ')} ${q.explanation} ${q.tags.join(' ')}`)) { errors.push({ index: i, error: 'source_lock' }); continue; }
       const problems = registry.validate('multiple_choice', { type: 'multiple_choice', content, correctAnswer: correct, configuration: {} });
       if (problems.length) { errors.push({ index: i, error: problems.join('; ') }); continue; }
       const hash = computeContentHash('multiple_choice', content, correct);

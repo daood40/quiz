@@ -82,6 +82,7 @@ export function parseNumeric(input: unknown): number | null {
     percent = true;
     s = s.slice(0, -1);
   }
+  if (!s) return null; // '' / '   ' / '%' must never parse as 0 (Number('') === 0)
   const frac = s.match(/^(-?\d+(?:\.\d+)?)\/(-?\d+(?:\.\d+)?)$/);
   let n: number;
   if (frac) {
